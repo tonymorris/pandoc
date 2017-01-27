@@ -38,7 +38,7 @@ import Data.Scientific (coefficient, base10Exponent)
 import Data.Ord ( comparing )
 import Data.Char ( isSpace, isAlphaNum, toLower, isPunctuation )
 import Data.Maybe
-import Text.Pandoc.Definition
+import Text.Pandoc.Definition (Meta(Meta), Citation(Citation, _citationSuffix), Inline(Link, RawInline, Image, SoftBreak), Attr, Alignment(AlignRight, AlignCenter, AlignLeft, AlignDefault), ListNumberDelim(Period, DefaultDelim), ListNumberStyle(Example, Decimal, DefaultStyle, UpperRoman, UpperAlpha), Pandoc(Pandoc), MetaValue(MetaBlocks, MetaString, MetaMap, MetaBool, MetaInlines), Block(Para, Plain), CitationMode(NormalCitation, SuppressAuthor, AuthorInText), nullAttr, nullMeta)
 import Text.Pandoc.Emoji (emojis)
 import Text.Pandoc.Generic (bottomUp)
 import qualified Data.Text as T
@@ -1985,13 +1985,7 @@ cite = do
 textualCite :: MarkdownParser (F Inlines)
 textualCite = try $ do
   (_, key) <- citeKey
-  let first = Citation{ citationId      = key
-                      , citationPrefix  = []
-                      , citationSuffix  = []
-                      , citationMode    = AuthorInText
-                      , citationNoteNum = 0
-                      , citationHash    = 0
-                      }
+  let first = Citation key [] [] AuthorInText 0 0
   mbrest <- option Nothing $ try $ spnl >> Just <$> withRaw normalCite
   case mbrest of
        Just (rest, raw) ->
@@ -2030,7 +2024,7 @@ bareloc c = try $ do
   return $ do
     suff' <- suff
     rest' <- rest
-    return $ c{ citationSuffix = B.toList suff' } : rest'
+    return $ c{ _citationSuffix = B.toList suff' } : rest'
 
 normalCite :: MarkdownParser (F [Citation])
 normalCite = try $ do
@@ -2065,15 +2059,7 @@ citation = try $ do
   return $ do
     x <- pref
     y <- suff
-    return $ Citation{ citationId      = key
-                     , citationPrefix  = B.toList x
-                     , citationSuffix  = B.toList y
-                     , citationMode    = if suppress_author
-                                            then SuppressAuthor
-                                            else NormalCitation
-                     , citationNoteNum = 0
-                     , citationHash    = 0
-                     }
+    return $ Citation key (B.toList x) (B.toList y) (if suppress_author then SuppressAuthor else NormalCitation) 0 0
 
 smart :: MarkdownParser (F Inlines)
 smart = do

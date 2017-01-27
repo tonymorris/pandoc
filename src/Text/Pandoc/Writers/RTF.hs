@@ -84,8 +84,8 @@ writeRTFWithEmbeddedImages options doc =
 
 -- | Convert Pandoc to a string in rich text format.
 writeRTF :: WriterOptions -> Pandoc -> String
-writeRTF options (Pandoc meta@(Meta metamap) blocks) =
-  let spacer = not $ all null $ docTitle meta : docDate meta : docAuthors meta
+writeRTF options (Pandoc mt@(Meta metamap) blocks) =
+  let spacer = not $ all null $ docTitle mt : docDate mt : docAuthors mt
       toPlain (MetaBlocks [Para ils]) = MetaInlines ils
       toPlain x = x
       -- adjust title, author, date so we don't get para inside para

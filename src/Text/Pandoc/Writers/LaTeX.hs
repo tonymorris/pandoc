@@ -97,14 +97,14 @@ writeLaTeX options document =
                 stInternalLinks = [], stUsesEuro = False }
 
 pandocToLaTeX :: WriterOptions -> Pandoc -> State WriterState String
-pandocToLaTeX options (Pandoc meta blocks) = do
+pandocToLaTeX options (Pandoc mt blx) = do
   -- Strip off final 'references' header if --natbib or --biblatex
   let method = writerCiteMethod options
   let blocks' = if method == Biblatex || method == Natbib
-                   then case reverse blocks of
+                   then case reverse blx of
                              (Div (_,["references"],_) _):xs -> reverse xs
-                             _ -> blocks
-                   else blocks
+                             _ -> blx
+                   else blx
   -- see if there are internal links
   let isInternalLink (Link _ _ ('#':xs,_))  = [xs]
       isInternalLink _                      = []
@@ -117,13 +117,13 @@ pandocToLaTeX options (Pandoc meta blocks) = do
   metadata <- metaToJSON options
               (fmap (render colwidth) . blockListToLaTeX)
               (fmap (render colwidth) . inlineListToLaTeX)
-              meta
+              mt
   let bookClasses = ["memoir","book","report","scrreprt","scrbook"]
   let documentClass = case P.parse pDocumentClass "template" template of
                               Right r -> r
                               Left _  -> ""
   case lookup "documentclass" (writerVariables options) `mplus`
-        fmap stringify (lookupMeta "documentclass" meta) of
+        fmap stringify (lookupMeta "documentclass" mt) of
          Just x  | x `elem` bookClasses -> modify $ \s -> s{stBook = True}
                  | otherwise            -> return ()
          Nothing | documentClass `elem` bookClasses
@@ -150,9 +150,9 @@ pandocToLaTeX options (Pandoc meta blocks) = do
   (biblioTitle :: String) <- liftM (render colwidth) $ inlineListToLaTeX lastHeader
   let main = render colwidth $ vsep body
   st <- get
-  titleMeta <- stringToLaTeX TextString $ stringify $ docTitle meta
-  authorsMeta <- mapM (stringToLaTeX TextString . stringify) $ docAuthors meta
-  let docLangs = nub $ query (extract "lang") blocks
+  titleMeta <- stringToLaTeX TextString $ stringify $ docTitle mt
+  authorsMeta <- mapM (stringToLaTeX TextString . stringify) $ docAuthors mt
+  let docLangs = nub $ query (extract "lang") blx
   let hasStringValue x = isJust (getField x metadata :: Maybe String)
   let geometryFromMargins = intercalate [','] $ catMaybes $
                               map (\(x,y) ->
@@ -201,7 +201,7 @@ pandocToLaTeX options (Pandoc meta blocks) = do
                   defField "otherlangs" docLangs $
                   defField "colorlinks" (any hasStringValue
                            ["citecolor", "urlcolor", "linkcolor", "toccolor"]) $
-                  defField "dir" (if (null $ query (extract "dir") blocks)
+                  defField "dir" (if (null $ query (extract "dir") blx)
                                      then ""::String
                                      else "ltr") $
                   defField "section-titles" True $
@@ -252,7 +252,7 @@ pandocToLaTeX options (Pandoc meta blocks) = do
 
 -- | Convert Elements to LaTeX
 elementToLaTeX :: WriterOptions -> Element -> State WriterState Doc
-elementToLaTeX _ (Blk block) = blockToLaTeX block
+elementToLaTeX _ (Blk blk) = blockToLaTeX blk
 elementToLaTeX opts (Sec level _ (id',classes,_) title' elements) = do
   modify $ \s -> s{stInHeading = True}
   header' <- sectionHeader ("unnumbered" `elem` classes) id' level title'
@@ -676,11 +676,11 @@ displayMathToInline x = x
 
 tableCellToLaTeX :: Bool -> (Double, Alignment, [Block])
                  -> State WriterState Doc
-tableCellToLaTeX _      (0,     _,     blocks) =
-  blockListToLaTeX $ walk fixLineBreaks $ walk displayMathToInline blocks
-tableCellToLaTeX header (width, align, blocks) = do
+tableCellToLaTeX _      (0,     _,     blx) =
+  blockListToLaTeX $ walk fixLineBreaks $ walk displayMathToInline blx
+tableCellToLaTeX header (width, align, blx) = do
   modify $ \st -> st{ stInMinipage = True, stNotes = [] }
-  cellContents <- blockListToLaTeX blocks
+  cellContents <- blockListToLaTeX blx
   notes <- gets stNotes
   modify $ \st -> st{ stInMinipage = False, stNotes = [] }
   let valign = text $ if header then "[b]" else "[t]"
@@ -1039,11 +1039,12 @@ citationsToNatbib :: [Citation] -> State WriterState Doc
 citationsToNatbib (one:[])
   = citeCommand c p s k
   where
-    Citation { citationId = k
-             , citationPrefix = p
-             , citationSuffix = s
-             , citationMode = m
+    Citation { _citationId = k
+             , _citationPrefix = p
+             , _citationSuffix = s
+             , _citationMode = m
              }
+
       = one
     c = case m of
              AuthorInText     -> "citet"
@@ -1054,16 +1055,16 @@ citationsToNatbib cits
   | noPrefix (tail cits) && noSuffix (init cits) && ismode NormalCitation cits
   = citeCommand "citep" p s ks
   where
-     noPrefix  = all (null . citationPrefix)
-     noSuffix  = all (null . citationSuffix)
-     ismode m  = all (((==) m)  . citationMode)
-     p         = citationPrefix  $ head $ cits
-     s         = citationSuffix  $ last $ cits
-     ks        = intercalate ", " $ map citationId cits
+     noPrefix  = all (null . _citationPrefix)
+     noSuffix  = all (null . _citationSuffix)
+     ismode m  = all (((==) m)  . _citationMode)
+     p         = _citationPrefix  $ head $ cits
+     s         = _citationSuffix  $ last $ cits
+     ks        = intercalate ", " $ map _citationId cits
 
-citationsToNatbib (c:cs) | citationMode c == AuthorInText = do
-     author <- citeCommand "citeauthor" [] [] (citationId c)
-     cits   <- citationsToNatbib (c { citationMode = SuppressAuthor } : cs)
+citationsToNatbib (c:cs) | _citationMode c == AuthorInText = do
+     author <- citeCommand "citeauthor" [] [] (_citationId c)
+     cits   <- citationsToNatbib (c { _citationMode = SuppressAuthor } : cs)
      return $ author <+> cits
 
 citationsToNatbib cits = do
@@ -1072,10 +1073,10 @@ citationsToNatbib cits = do
   where
     combineTwo a b | isEmpty a = b
                    | otherwise = a <> text "; " <> b
-    convertOne Citation { citationId = k
-                        , citationPrefix = p
-                        , citationSuffix = s
-                        , citationMode = m
+    convertOne Citation { _citationId = k
+                        , _citationPrefix = p
+                        , _citationSuffix = s
+                        , _citationMode = m
                         }
         = case m of
                AuthorInText   -> citeCommand "citealt"  p s k
@@ -1105,10 +1106,10 @@ citationsToBiblatex :: [Citation] -> State WriterState Doc
 citationsToBiblatex (one:[])
   = citeCommand cmd p s k
     where
-       Citation { citationId = k
-                , citationPrefix = p
-                , citationSuffix = s
-                , citationMode = m
+       Citation { _citationId = k
+                , _citationPrefix = p
+                , _citationSuffix = s
+                , _citationMode = m
                 } = one
        cmd = case m of
                   SuppressAuthor -> "autocite*"
@@ -1119,13 +1120,13 @@ citationsToBiblatex (c:cs) = do
   args <- mapM convertOne (c:cs)
   return $ text cmd <> foldl' (<>) empty args
     where
-       cmd = case citationMode c of
+       cmd = case _citationMode c of
                   SuppressAuthor -> "\\autocites*"
                   AuthorInText   -> "\\textcites"
                   NormalCitation -> "\\autocites"
-       convertOne Citation { citationId = k
-                           , citationPrefix = p
-                           , citationSuffix = s
+       convertOne Citation { _citationId = k
+                           , _citationPrefix = p
+                           , _citationSuffix = s
                            }
               = citeArguments p s k
 

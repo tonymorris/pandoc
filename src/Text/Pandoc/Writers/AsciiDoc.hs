@@ -71,16 +71,16 @@ writeAsciiDoc opts document =
 
 -- | Return asciidoc representation of document.
 pandocToAsciiDoc :: WriterOptions -> Pandoc -> State WriterState String
-pandocToAsciiDoc opts (Pandoc meta blocks) = do
-  let titleblock = not $ null (docTitle meta) && null (docAuthors meta) &&
-                         null (docDate meta)
+pandocToAsciiDoc opts (Pandoc mt blx) = do
+  let titleblock = not $ null (docTitle mt) && null (docAuthors mt) &&
+                         null (docDate mt)
   let colwidth = if writerWrapText opts == WrapAuto
                     then Just $ writerColumns opts
                     else Nothing
   metadata <- metaToJSON opts
               (fmap (render colwidth) . blockListToAsciiDoc opts)
               (fmap (render colwidth) . inlineListToAsciiDoc opts)
-              meta
+              mt
   let addTitleLine (String t) = String $
          t <> "\n" <> T.replicate (T.length t) "="
       addTitleLine x = x
@@ -88,7 +88,7 @@ pandocToAsciiDoc opts (Pandoc meta blocks) = do
                         Success m  -> toJSON $ M.adjust addTitleLine
                                                  ("title" :: T.Text) m
                         _          -> metadata
-  body <- blockListToAsciiDoc opts blocks
+  body <- blockListToAsciiDoc opts blx
   let main = render colwidth body
   let context  = defField "body" main
                $ defField "toc"
@@ -175,12 +175,12 @@ blockToAsciiDoc _ (CodeBlock (_,classes,_) str) = return $ (flush $
      else attrs $$ "----" $$ text str $$ "----")
   <> blankline
     where attrs = "[" <> text (intercalate "," ("source" : classes)) <> "]"
-blockToAsciiDoc opts (BlockQuote blocks) = do
-  contents <- blockListToAsciiDoc opts blocks
+blockToAsciiDoc opts (BlockQuote blx) = do
+  contents <- blockListToAsciiDoc opts blx
   let isBlock (BlockQuote _) = True
       isBlock _              = False
   -- if there are nested block quotes, put in an open block
-  let contents' = if any isBlock blocks
+  let contents' = if any isBlock blx
                      then "--" $$ contents $$ "--"
                      else contents
   let cols = offset contents'
@@ -269,7 +269,7 @@ blockToAsciiDoc opts (Div (ident,_,_) bs) = do
 
 -- | Convert bullet list item (list of blocks) to asciidoc.
 bulletListItemToAsciiDoc :: WriterOptions -> [Block] -> State WriterState Doc
-bulletListItemToAsciiDoc opts blocks = do
+bulletListItemToAsciiDoc opts blx = do
   let addBlock :: Doc -> Block -> State WriterState Doc
       addBlock d b | isEmpty d    = chomp `fmap` blockToAsciiDoc opts b
       addBlock d b@(BulletList _) = do x <- blockToAsciiDoc opts b
@@ -280,7 +280,7 @@ bulletListItemToAsciiDoc opts blocks = do
                         return $ d <> cr <> text "+" <> cr <> chomp x
   lev <- bulletListLevel `fmap` get
   modify $ \s -> s{ bulletListLevel = lev + 1 }
-  contents <- foldM addBlock empty blocks
+  contents <- foldM addBlock empty blx
   modify $ \s -> s{ bulletListLevel = lev }
   let marker = text (replicate lev '*')
   return $ marker <> text " " <> contents <> cr
@@ -290,7 +290,7 @@ orderedListItemToAsciiDoc :: WriterOptions -- ^ options
                           -> String        -- ^ list item marker
                           -> [Block]       -- ^ list item (list of blocks)
                           -> State WriterState Doc
-orderedListItemToAsciiDoc opts marker blocks = do
+orderedListItemToAsciiDoc opts marker blx = do
   let addBlock :: Doc -> Block -> State WriterState Doc
       addBlock d b | isEmpty d    = chomp `fmap` blockToAsciiDoc opts b
       addBlock d b@(BulletList _) = do x <- blockToAsciiDoc opts b
@@ -301,7 +301,7 @@ orderedListItemToAsciiDoc opts marker blocks = do
                         return $ d <> cr <> text "+" <> cr <> chomp x
   lev <- orderedListLevel `fmap` get
   modify $ \s -> s{ orderedListLevel = lev + 1 }
-  contents <- foldM addBlock empty blocks
+  contents <- foldM addBlock empty blx
   modify $ \s -> s{ orderedListLevel = lev }
   return $ text marker <> text " " <> contents <> cr
 
@@ -328,7 +328,7 @@ definitionListItemToAsciiDoc opts (label, defs) = do
 blockListToAsciiDoc :: WriterOptions -- ^ Options
                     -> [Block]       -- ^ List of block elements
                     -> State WriterState Doc
-blockListToAsciiDoc opts blocks = cat `fmap` mapM (blockToAsciiDoc opts) blocks
+blockListToAsciiDoc opts blx = cat `fmap` mapM (blockToAsciiDoc opts) blx
 
 data SpacyLocation = End | Start
 

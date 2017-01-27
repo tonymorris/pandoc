@@ -69,21 +69,21 @@ writeTexinfo options document =
 
 -- | Add a "Top" node around the document, needed by Texinfo.
 wrapTop :: Pandoc -> Pandoc
-wrapTop (Pandoc meta blocks) =
-  Pandoc meta (Header 0 nullAttr (docTitle meta) : blocks)
+wrapTop (Pandoc mt blx) =
+  Pandoc mt (Header 0 nullAttr (docTitle mt) : blx)
 
 pandocToTexinfo :: WriterOptions -> Pandoc -> State WriterState String
-pandocToTexinfo options (Pandoc meta blocks) = do
+pandocToTexinfo options (Pandoc mt blx) = do
   let titlePage = not $ all null
-                      $ docTitle meta : docDate meta : docAuthors meta
+                      $ docTitle mt : docDate mt : docAuthors mt
   let colwidth = if writerWrapText options == WrapAuto
                     then Just $ writerColumns options
                     else Nothing
   metadata <- metaToJSON options
               (fmap (render colwidth) . blockListToTexinfo)
               (fmap (render colwidth) . inlineListToTexinfo)
-              meta
-  main <- blockListToTexinfo blocks
+              mt
+  main <- blockListToTexinfo blx
   st <- get
   let body = render colwidth main
   let context = defField "body" body

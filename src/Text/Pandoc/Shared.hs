@@ -403,8 +403,8 @@ extractSpaces f is =
 -- combining adjacent 'Str's and 'Emph's, remove 'Null's and
 -- empty elements, etc.
 normalize :: Pandoc -> Pandoc
-normalize (Pandoc (Meta meta) blocks) =
-  Pandoc (Meta $ M.map go meta) (normalizeBlocks blocks)
+normalize (Pandoc (Meta mt) blx) =
+  Pandoc (Meta $ M.map go mt) (normalizeBlocks blx)
   where go (MetaInlines xs) = MetaInlines $ normalizeInlines xs
         go (MetaBlocks xs)  = MetaBlocks  $ normalizeBlocks xs
         go (MetaList ms)    = MetaList $ map go ms
@@ -692,7 +692,7 @@ inlineListToIdentifier =
 
 -- | Convert list of Pandoc blocks into (hierarchical) list of Elements
 hierarchicalize :: [Block] -> [Element]
-hierarchicalize blocks = S.evalState (hierarchicalizeWithIds blocks) []
+hierarchicalize blx = S.evalState (hierarchicalizeWithIds blx) []
 
 hierarchicalizeWithIds :: [Block] -> S.State [Int] [Element]
 hierarchicalizeWithIds [] = return []
@@ -761,8 +761,8 @@ addMetaField :: ToMetaValue a
              -> a
              -> Meta
              -> Meta
-addMetaField key val (Meta meta) =
-  Meta $ M.insertWith combine key (toMetaValue val) meta
+addMetaField key val (Meta mt) =
+  Meta $ M.insertWith combine key (toMetaValue val) mt
   where combine newval (MetaList xs) = MetaList (xs ++ tolist newval)
         combine newval x             = MetaList [x, newval]
         tolist (MetaList ys)         = ys

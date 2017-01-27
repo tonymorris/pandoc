@@ -45,16 +45,16 @@ import Text.Pandoc.Walk (walkM)
 
 -- | Convert Pandoc to CommonMark.
 writeCommonMark :: WriterOptions -> Pandoc -> String
-writeCommonMark opts (Pandoc meta blocks) = rendered
+writeCommonMark opts (Pandoc mt blx) = rendered
   where main = runIdentity $ blocksToCommonMark opts (blocks' ++ notes')
-        (blocks', notes) = runState (walkM processNotes blocks) []
+        (blocks', notes) = runState (walkM processNotes blx) []
         notes' = if null notes
                     then []
                     else [OrderedList (1, Decimal, Period) $ reverse notes]
         metadata = runIdentity $ metaToJSON opts
                      (blocksToCommonMark opts)
                      (inlinesToCommonMark opts)
-                     meta
+                     mt
         context = defField "body" main $ metadata
         rendered = case writerTemplate opts of
                         Nothing  -> main

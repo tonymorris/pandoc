@@ -161,12 +161,12 @@ instance StackValue Citation where
     Lua.createtable lua 6 0
     let addValue (k :: String, v) = Lua.push lua k >> Lua.push lua v >>
                           Lua.rawset lua (-3)
-    addValue ("citationId", citationId cit)
-    addValue ("citationPrefix", citationPrefix cit)
-    addValue ("citationSuffix", citationSuffix cit)
-    addValue ("citationMode", show (citationMode cit))
-    addValue ("citationNoteNum", citationNoteNum cit)
-    addValue ("citationHash", citationHash cit)
+    addValue ("citationId", _citationId cit)
+    addValue ("citationPrefix", _citationPrefix cit)
+    addValue ("citationSuffix", _citationSuffix cit)
+    addValue ("citationMode", show (_citationMode cit))
+    addValue ("citationNoteNum", _citationNoteNum cit)
+    addValue ("citationHash", _citationHash cit)
   peek = undefined
   valuetype _ = Lua.TTABLE
 
@@ -177,7 +177,7 @@ instance Exception PandocLuaException
 
 -- | Convert Pandoc to custom markup.
 writeCustom :: FilePath -> WriterOptions -> Pandoc -> IO String
-writeCustom luaFile opts doc@(Pandoc meta _) = do
+writeCustom luaFile opts doc@(Pandoc mt _) = do
   luaScript <- UTF8.readFile luaFile
   enc <- getForeignEncoding
   setForeignEncoding utf8
@@ -198,7 +198,7 @@ writeCustom luaFile opts doc@(Pandoc meta _) = do
   context <- metaToJSON opts
              (blockListToCustom lua)
              (inlineListToCustom lua)
-             meta
+             mt
   Lua.close lua
   setForeignEncoding enc
   let body = rendered
@@ -207,8 +207,8 @@ writeCustom luaFile opts doc@(Pandoc meta _) = do
        Just tpl -> return $ renderTemplate' tpl $ setField "body" body context
 
 docToCustom :: LuaState -> WriterOptions -> Pandoc -> IO String
-docToCustom lua opts (Pandoc (Meta metamap) blocks) = do
-  body <- blockListToCustom lua blocks
+docToCustom lua opts (Pandoc (Meta metamap) blx) = do
+  body <- blockListToCustom lua blx
   callfunc lua "Doc" body metamap (writerVariables opts)
 
 -- | Convert Pandoc block element to Custom.
@@ -238,7 +238,7 @@ blockToCustom lua (Header level attr inlines) =
 blockToCustom lua (CodeBlock attr str) =
   callfunc lua "CodeBlock" str (attrToMap attr)
 
-blockToCustom lua (BlockQuote blocks) = callfunc lua "BlockQuote" blocks
+blockToCustom lua (BlockQuote blx) = callfunc lua "BlockQuote" blx
 
 blockToCustom lua (Table capt aligns widths headers rows') =
   callfunc lua "Table" capt (map show aligns) widths headers rows'

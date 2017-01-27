@@ -57,9 +57,9 @@ import System.FilePath ( takeExtension, takeDirectory, (<.>))
 writeODT :: WriterOptions  -- ^ Writer options
          -> Pandoc         -- ^ Document to convert
          -> IO B.ByteString
-writeODT opts doc@(Pandoc meta _) = do
+writeODT opts doc@(Pandoc mt _) = do
   let datadir = writerUserDataDir opts
-  let title = docTitle meta
+  let title = docTitle mt
   refArchive <-
        case writerReferenceODT opts of
              Just f -> liftM toArchive $ B.readFile f

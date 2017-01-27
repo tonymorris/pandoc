@@ -190,7 +190,7 @@ handleSpaces s
 
 -- | Convert Pandoc document to string in OpenDocument format.
 writeOpenDocument :: WriterOptions -> Pandoc -> String
-writeOpenDocument opts (Pandoc meta blocks) =
+writeOpenDocument opts (Pandoc mt blx) =
   let colwidth = if writerWrapText opts == WrapAuto
                     then Just $ writerColumns opts
                     else Nothing
@@ -200,8 +200,8 @@ writeOpenDocument opts (Pandoc meta blocks) =
            m <- metaToJSON opts
                   (fmap (render colwidth) . blocksToOpenDocument opts)
                   (fmap (render colwidth) . inlinesToOpenDocument opts)
-                  meta
-           b <- render' `fmap` blocksToOpenDocument opts blocks
+                  mt
+           b <- render' `fmap` blocksToOpenDocument opts blx
            return (b, m)
       styles   = stTableStyles s ++ stParaStyles s ++
                      map snd (reverse $ sortBy (comparing fst) $
@@ -292,7 +292,7 @@ inBlockQuote  o i (b:bs)
                              go =<< inBlockQuote o ni (map plainToPara l)
     | Para       l <- b = do go =<< inParagraphTagsWithStyle ("P" ++ show  i) <$> inlinesToOpenDocument o l
     | otherwise         = do go =<< blockToOpenDocument o b
-    where go  block  = ($$) block <$> inBlockQuote o i bs
+    where go  blk  = ($$) blk <$> inBlockQuote o i bs
 inBlockQuote     _ _ [] =  resetIndent >> return empty
 
 -- | Convert a list of Pandoc blocks to OpenDocument.

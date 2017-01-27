@@ -120,19 +120,19 @@ writeHtml opts d =
 pandocToHtml :: WriterOptions
              -> Pandoc
              -> State WriterState (Html, Value)
-pandocToHtml opts (Pandoc meta blocks) = do
+pandocToHtml opts (Pandoc mt blx) = do
   metadata <- metaToJSON opts
               (fmap renderHtml . blockListToHtml opts)
               (fmap renderHtml . inlineListToHtml opts)
-              meta
+              mt
   let stringifyHTML = escapeStringForXML . stringify
-  let authsMeta = map stringifyHTML $ docAuthors meta
-  let dateMeta  = stringifyHTML $ docDate meta
-  let slideLevel = fromMaybe (getSlideLevel blocks) $ writerSlideLevel opts
+  let authsMeta = map stringifyHTML $ docAuthors mt
+  let dateMeta  = stringifyHTML $ docDate mt
+  let slideLevel = fromMaybe (getSlideLevel blx) $ writerSlideLevel opts
   let sects = hierarchicalize $
               if writerSlideVariant opts == NoSlides
-                 then blocks
-                 else prepSlides slideLevel blocks
+                 then blx
+                 else prepSlides slideLevel blx
   toc <- if writerTableOfContents opts
             then tableOfContents opts sects
             else return Nothing
@@ -184,7 +184,7 @@ pandocToHtml opts (Pandoc meta blocks) = do
                   maybe id (defField "toc" . renderHtml) toc $
                   defField "author-meta" authsMeta $
                   maybe id (defField "date-meta") (normalizeDate dateMeta) $
-                  defField "pagetitle" (stringifyHTML $ docTitle meta) $
+                  defField "pagetitle" (stringifyHTML $ docTitle mt) $
                   defField "idprefix" (writerIdentifierPrefix opts) $
                   -- these should maybe be set in pandoc.hs
                   defField "slidy-url"
@@ -266,7 +266,7 @@ elementToListItem _ _ = return Nothing
 
 -- | Convert an Element to Html.
 elementToHtml :: Int -> WriterOptions -> Element -> State WriterState Html
-elementToHtml _slideLevel opts (Blk block) = blockToHtml opts block
+elementToHtml _slideLevel opts (Blk blk) = blockToHtml opts blk
 elementToHtml slideLevel opts (Sec level num (id',classes,keyvals) title' elements) = do
   let slide = writerSlideVariant opts /= NoSlides && level <= slideLevel
   let num' = zipWith (+) num (writerNumberOffset opts ++ repeat 0)
@@ -511,13 +511,13 @@ blockToHtml opts (CodeBlock (id',classes,keyvals) rawCode) = do
                            $ H.pre $ H.code $ toHtml adjCode
          Just  h -> modify (\st -> st{ stHighlighting = True }) >>
                     return (addAttrs opts (id',[],keyvals) h)
-blockToHtml opts (BlockQuote blocks) =
+blockToHtml opts (BlockQuote blx) =
   -- in S5, treat list in blockquote specially
   -- if default is incremental, make it nonincremental;
   -- otherwise incremental
   if writerSlideVariant opts /= NoSlides
      then let inc = not (writerIncremental opts) in
-          case blocks of
+          case blx of
              [BulletList lst]  -> blockToHtml (opts {writerIncremental = inc})
                                   (BulletList lst)
              [OrderedList attribs lst] ->
@@ -526,11 +526,11 @@ blockToHtml opts (BlockQuote blocks) =
              [DefinitionList lst] ->
                                   blockToHtml (opts {writerIncremental = inc})
                                   (DefinitionList lst)
-             _                 -> do contents <- blockListToHtml opts blocks
+             _                 -> do contents <- blockListToHtml opts blx
                                      return $ H.blockquote
                                             $ nl opts >> contents >> nl opts
      else do
-       contents <- blockListToHtml opts blocks
+       contents <- blockListToHtml opts blx
        return $ H.blockquote $ nl opts >> contents >> nl opts
 blockToHtml opts (Header level attr@(_,classes,_) lst) = do
   contents <- inlineListToHtml opts lst
@@ -740,8 +740,8 @@ inlineToHtml opts inline =
                          return . (H.span ! A.style "font-variant: small-caps;")
     (Superscript lst) -> inlineListToHtml opts lst >>= return . H.sup
     (Subscript lst)   -> inlineListToHtml opts lst >>= return . H.sub
-    (Quoted quoteType lst) ->
-                        let (leftQuote, rightQuote) = case quoteType of
+    (Quoted quoteTp lst) ->
+                        let (leftQuote, rightQuote) = case quoteTp of
                               SingleQuote -> (strToHtml "‘",
                                               strToHtml "’")
                               DoubleQuote -> (strToHtml "“",
@@ -870,21 +870,21 @@ inlineToHtml opts inline =
                                       Just EPUB3 -> link ! customAttribute "epub:type" "noteref"
                                       _          -> link
     (Cite cits il)-> do contents <- inlineListToHtml opts il
-                        let citationIds = unwords $ map citationId cits
+                        let citationIds = unwords $ map _citationId cits
                         let result = H.span ! A.class_ "citation" $ contents
                         return $ if writerHtml5 opts
                                     then result ! customAttribute "data-cites" (toValue citationIds)
                                     else result
 
 blockListToNote :: WriterOptions -> String -> [Block] -> State WriterState Html
-blockListToNote opts ref blocks =
+blockListToNote opts ref blx =
   -- If last block is Para or Plain, include the backlink at the end of
   -- that block. Otherwise, insert a new Plain block with the backlink.
   let backlink = [Link nullAttr [Str "↩"] ("#" ++ writerIdentifierPrefix opts ++ "fnref" ++ ref,[])]
-      blocks'  = if null blocks
+      blocks'  = if null blx
                     then []
-                    else let lastBlock   = last blocks
-                             otherBlocks = init blocks
+                    else let lastBlock   = last blx
+                             otherBlocks = init blx
                          in  case lastBlock of
                                   (Para lst)  -> otherBlocks ++
                                                  [Para (lst ++ backlink)]

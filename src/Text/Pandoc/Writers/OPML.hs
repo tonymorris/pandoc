@@ -43,12 +43,12 @@ import qualified Text.Pandoc.Builder as B
 
 -- | Convert Pandoc document to string in OPML format.
 writeOPML :: WriterOptions -> Pandoc -> String
-writeOPML opts (Pandoc meta blocks) =
-  let elements = hierarchicalize blocks
+writeOPML opts (Pandoc mt blx) =
+  let elements = hierarchicalize blx
       colwidth = if writerWrapText opts == WrapAuto
                     then Just $ writerColumns opts
                     else Nothing
-      meta' = B.setMeta "date" (B.str $ convertDate $ docDate meta) meta
+      meta' = B.setMeta "date" (B.str $ convertDate $ docDate mt) mt
       Just metadata = metaToJSON opts
                       (Just . writeMarkdown def . Pandoc nullMeta)
                       (Just . trimr . writeMarkdown def . Pandoc nullMeta .
@@ -85,10 +85,10 @@ elementToOPML opts (Sec _ _num _ title elements) =
       isBlk _     = False
       fromBlk (Blk x) = x
       fromBlk _ = error "fromBlk called on non-block"
-      (blocks, rest) = span isBlk elements
+      (blx, rest) = span isBlk elements
       attrs = [("text", writeHtmlInlines title)] ++
               [("_note", writeMarkdown def (Pandoc nullMeta
-                              (map fromBlk blocks)))
-                | not (null blocks)]
+                              (map fromBlk blx)))
+                | not (null blx)]
   in  inTags True "outline" attrs $
       vcat (map (elementToOPML opts) rest)

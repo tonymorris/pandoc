@@ -65,13 +65,13 @@ writeMediaWiki opts document =
 
 -- | Return MediaWiki representation of document.
 pandocToMediaWiki :: Pandoc -> MediaWikiWriter String
-pandocToMediaWiki (Pandoc meta blocks) = do
+pandocToMediaWiki (Pandoc mt blx) = do
   opts <- asks options
   metadata <- metaToJSON opts
               (fmap trimr . blockListToMediaWiki)
               inlineListToMediaWiki
-              meta
-  body <- blockListToMediaWiki blocks
+              mt
+  body <- blockListToMediaWiki blx
   notesExist <- gets stNotes
   let notes = if notesExist
                  then "\n<references />"
@@ -154,8 +154,8 @@ blockToMediaWiki (CodeBlock (_,classes,_) str) = do
        else "<source lang=\"" ++ head at ++ "\">" ++ str ++ "</source>"
             -- note:  no escape!
 
-blockToMediaWiki (BlockQuote blocks) = do
-  contents <- blockListToMediaWiki blocks
+blockToMediaWiki (BlockQuote blx) = do
+  contents <- blockListToMediaWiki blx
   return $ "<blockquote>" ++ contents ++ "</blockquote>"
 
 blockToMediaWiki (Table capt aligns widths headers rows') = do
@@ -342,8 +342,8 @@ imageToMediaWiki attr = do
 -- | Convert list of Pandoc block elements to MediaWiki.
 blockListToMediaWiki :: [Block]       -- ^ List of block elements
                      -> MediaWikiWriter String
-blockListToMediaWiki blocks =
-  fmap vcat $ mapM blockToMediaWiki blocks
+blockListToMediaWiki blx =
+  fmap vcat $ mapM blockToMediaWiki blx
 
 -- | Convert list of Pandoc inline elements to MediaWiki.
 inlineListToMediaWiki :: [Inline] -> MediaWikiWriter String

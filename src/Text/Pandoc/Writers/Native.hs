@@ -43,8 +43,8 @@ prettyList ds =
 prettyBlock :: Block -> Doc
 prettyBlock (LineBlock lines') =
   "LineBlock" $$ prettyList (map (text . show) lines')
-prettyBlock (BlockQuote blocks) =
-  "BlockQuote" $$ prettyList (map prettyBlock blocks)
+prettyBlock (BlockQuote blx) =
+  "BlockQuote" $$ prettyList (map prettyBlock blx)
 prettyBlock (OrderedList attribs blockLists) =
   "OrderedList" <> space <> text (show attribs) $$
   (prettyList $ map (prettyList . map prettyBlock) blockLists)
@@ -61,18 +61,18 @@ prettyBlock (Table caption aligns widths header rows) =
   prettyRow header $$
   prettyList (map prettyRow rows)
     where prettyRow cols = prettyList (map (prettyList . map prettyBlock) cols)
-prettyBlock (Div attr blocks) =
-  text ("Div " <> show attr) $$ prettyList (map prettyBlock blocks)
-prettyBlock block = text $ show block
+prettyBlock (Div attr blx) =
+  text ("Div " <> show attr) $$ prettyList (map prettyBlock blx)
+prettyBlock blk = text $ show blk
 
 -- | Prettyprint Pandoc document.
 writeNative :: WriterOptions -> Pandoc -> String
-writeNative opts (Pandoc meta blocks) =
+writeNative opts (Pandoc mt blx) =
   let colwidth = if writerWrapText opts == WrapAuto
                     then Just $ writerColumns opts
                     else Nothing
       withHead = case writerTemplate opts of
-                      Just _  -> \bs -> text ("Pandoc (" ++ show meta ++ ")") $$
+                      Just _  -> \bs -> text ("Pandoc (" ++ show mt ++ ")") $$
                                   bs $$ cr
                       Nothing -> id
-  in  render colwidth $ withHead $ prettyList $ map prettyBlock blocks
+  in  render colwidth $ withHead $ prettyList $ map prettyBlock blx

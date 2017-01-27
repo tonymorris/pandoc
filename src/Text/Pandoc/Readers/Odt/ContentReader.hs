@@ -411,16 +411,16 @@ getParaModifier Style{..} | Just props <- paraProperties styleProperties
 
 --
 constructPara :: OdtReaderSafe Blocks Blocks -> OdtReaderSafe Blocks Blocks
-constructPara reader = proc blocks -> do
-  fStyle <- readStyleByName -< blocks
+constructPara reader = proc blx -> do
+  fStyle <- readStyleByName -< blx
   case fStyle of
-    Left   _    -> reader -< blocks
+    Left   _    -> reader -< blx
     Right (styleName, _) | isTableCaptionStyle styleName -> do
-      blocks' <- reader   -< blocks
+      blocks' <- reader   -< blx
       arr tableCaptionP  -< blocks'
     Right (_, style) -> do
       let modifier = getParaModifier style
-      blocks' <- reader   -<  blocks
+      blocks' <- reader   -<  blx
       arr modifier        -<< blocks'
   where
     isTableCaptionStyle :: StyleName -> Bool
@@ -435,10 +435,10 @@ getListConstructor ListLevelStyle{..} =
   case listLevelType of
     LltBullet   -> bulletList
     LltImage    -> bulletList
-    LltNumbered -> let listNumberStyle = toListNumberStyle listItemFormat
-                       listNumberDelim = toListNumberDelim listItemPrefix
+    LltNumbered -> let listNumberStyle' = toListNumberStyle listItemFormat
+                       listNumberDelim' = toListNumberDelim listItemPrefix
                                                            listItemSuffix
-                   in  orderedListWith (listItemStart, listNumberStyle, listNumberDelim)
+                   in  orderedListWith (listItemStart, listNumberStyle', listNumberDelim')
   where
     toListNumberStyle  LinfNone      = DefaultStyle
     toListNumberStyle  LinfNumber    = Decimal
@@ -479,9 +479,9 @@ constructList reader = proc x -> do
           case fLLS of
             Just listLevelStyle -> do
               oldListStyle <- switchCurrentListStyle           -<  Just listStyle
-              blocks       <- constructListWith listLevelStyle -<< x
+              blx          <- constructListWith listLevelStyle -<< x
               switchCurrentListStyle                           -<  oldListStyle
-              returnA                                          -<  blocks
+              returnA                                          -<  blx
             Nothing             -> constructOrderedList        -< x
         Left _                  -> constructOrderedList        -< x
     Left _ -> do
@@ -627,9 +627,9 @@ read_paragraph    = matchingElement NsText "p"
 --
 read_header      :: BlockMatcher
 read_header       = matchingElement NsText "h"
-                    $  proc blocks -> do
+                    $  proc blx -> do
   level    <- ( readAttrWithDefault NsText "outline-level" 1
-              ) -< blocks
+              ) -< blx
   children <- ( matchChildContent [ read_span
                                   , read_spaces
                                   , read_line_break
@@ -643,7 +643,7 @@ read_header       = matchingElement NsText "h"
                                   , read_reference_ref
                                   , read_maybe_nested_img_frame
                                   ] read_plain_text
-              ) -< blocks
+              ) -< blx
   anchor   <- getHeaderAnchor -< children
   let idAttr = (anchor, [], []) -- no classes, no key-value pairs
   arr (uncurry3 headerWith) -< (idAttr, level, children)
@@ -760,22 +760,22 @@ read_table_cell    = matchingElement NsTable "table-cell"
 --
 read_maybe_nested_img_frame  :: InlineMatcher
 read_maybe_nested_img_frame   = matchingElement NsDraw "frame"
-                                $ proc blocks -> do
+                                $ proc blx -> do
                                    img <- (findChild' NsDraw "image") -< ()
                                    case img of
-                                     Just _  ->  read_frame                                 -< blocks
-                                     Nothing ->  matchChildContent' [ read_frame_text_box ] -< blocks
+                                     Just _  ->  read_frame                                 -< blx
+                                     Nothing ->  matchChildContent' [ read_frame_text_box ] -< blx
 
 read_frame :: OdtReaderSafe Inlines Inlines
 read_frame =
-  proc blocks -> do
+  proc blx -> do
    w          <- ( findAttr' NsSVG "width" )                 -< ()
    h          <- ( findAttr' NsSVG "height" )                -< ()
-   titleNodes <- ( matchChildContent' [ read_frame_title ] ) -< blocks
-   src        <-  matchChildContent' [ read_image_src ]      -< blocks
+   titleNodes <- ( matchChildContent' [ read_frame_title ] ) -< blx
+   src        <-  matchChildContent' [ read_image_src ]      -< blx
    resource   <- lookupResource                              -< src
    _          <- updateMediaWithResource                     -< resource
-   alt        <- (matchChildContent [] read_plain_text)      -< blocks
+   alt        <- (matchChildContent [] read_plain_text)      -< blx
    arr (uncurry4 imageWith ) -<
                 (image_attributes w h, src, inlineListToIdentifier (toList titleNodes), alt)
 
@@ -801,8 +801,8 @@ read_frame_title = matchingElement NsSVG "title"
 
 read_frame_text_box :: InlineMatcher
 read_frame_text_box = matchingElement NsDraw "text-box"
-                      $ proc blocks -> do
-                         paragraphs <- (matchChildContent' [ read_paragraph ]) -< blocks
+                      $ proc blx -> do
+                         paragraphs <- (matchChildContent' [ read_paragraph ]) -< blx
                          arr read_img_with_caption                             -< toList paragraphs
 
 read_img_with_caption :: [Block] -> Inlines
@@ -911,8 +911,8 @@ read_text = matchChildContent' [ read_header
             >>^ doc
 
 post_process :: Pandoc -> Pandoc
-post_process (Pandoc m blocks) =
-  Pandoc m (post_process' blocks)
+post_process (Pandoc m blx) =
+  Pandoc m (post_process' blx)
 
 post_process' :: [Block] -> [Block]
 post_process' ((Table _ a w h r) : (Div ("", ["caption"], _) [Para inlines] ) : xs) =

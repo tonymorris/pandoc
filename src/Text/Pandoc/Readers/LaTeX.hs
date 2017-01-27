@@ -35,7 +35,6 @@ module Text.Pandoc.Readers.LaTeX ( readLaTeX,
                                    handleIncludes
                                  ) where
 
-import Text.Pandoc.Definition
 import Text.Pandoc.Walk
 import Text.Pandoc.Shared
 import Text.Pandoc.Options
@@ -45,7 +44,7 @@ import qualified Text.Pandoc.UTF8 as UTF8
 import Data.Char ( chr, ord, isLetter, isAlphaNum )
 import Control.Monad.Trans (lift)
 import Control.Monad
-import Text.Pandoc.Builder
+import Text.Pandoc.Builder hiding (block, blocks, citation)
 import Control.Applicative ((<|>), many, optional)
 import Data.Maybe (fromMaybe, maybeToList)
 import System.Environment (getEnv)
@@ -68,9 +67,9 @@ parseLaTeX = do
   bs <- blocks
   eof
   st <- getState
-  let meta = stateMeta st
+  let mt = stateMeta st
   let (Pandoc _ bs') = doc bs
-  return $ Pandoc meta bs'
+  return $ Pandoc mt bs'
 
 type LP = Parser String ParserState
 
@@ -1283,13 +1282,13 @@ preamble = mempty <$> manyTill preambleBlock beginDoc
 -- citations
 
 addPrefix :: [Inline] -> [Citation] -> [Citation]
-addPrefix p (k:ks)   = k {citationPrefix = p ++ citationPrefix k} : ks
+addPrefix p (k:ks)   = k {_citationPrefix = p ++ _citationPrefix k} : ks
 addPrefix _ _ = []
 
 addSuffix :: [Inline] -> [Citation] -> [Citation]
 addSuffix s ks@(_:_) =
   let k = last ks
-  in  init ks ++ [k {citationSuffix = citationSuffix k ++ s}]
+  in  init ks ++ [k {_citationSuffix = _citationSuffix k ++ s}]
 addSuffix _ _ = []
 
 simpleCiteArgs :: LP [Citation]
@@ -1303,13 +1302,7 @@ simpleCiteArgs = try $ do
         (Just s , Nothing) -> (mempty, s )
         (Just s , Just t ) -> (s , t )
         _                  -> (mempty, mempty)
-      conv k = Citation { citationId      = k
-                        , citationPrefix  = []
-                        , citationSuffix  = []
-                        , citationMode    = NormalCitation
-                        , citationHash    = 0
-                        , citationNoteNum = 0
-                        }
+      conv k = Citation k [] [] NormalCitation 0 0
   return $ addPrefix pre $ addSuffix suf $ map conv keys
 
 citationLabel :: LP String
@@ -1328,9 +1321,9 @@ cites mode multi = try $ do
   let cs = concat cits
   return $ case mode of
         AuthorInText -> case cs of
-                             (c:rest) -> c {citationMode = mode} : rest
+                             (c:rest) -> c {_citationMode = mode} : rest
                              []       -> []
-        _            -> map (\a -> a {citationMode = mode}) cs
+        _            -> map (\a -> a {_citationMode = mode}) cs
 
 citation :: String -> CitationMode -> Bool -> LP Inlines
 citation name mode multi = do
@@ -1354,7 +1347,7 @@ complexNatbibCitation mode = try $ do
                    optional $ char ';'
                    return $ addPrefix pref $ addSuffix suff cits'
   (c:cits, raw) <- withRaw $ grouped parseOne
-  return $ cite (c{ citationMode = mode }:cits)
+  return $ cite (c{ _citationMode = mode }:cits)
            (rawInline "latex" $ "\\citetext" ++ raw)
 
 -- tables

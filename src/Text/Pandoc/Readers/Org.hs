@@ -31,7 +31,7 @@ import           Text.Pandoc.Readers.Org.Blocks ( blockList, meta )
 import           Text.Pandoc.Readers.Org.Parsing ( OrgParser, readWithM )
 import           Text.Pandoc.Readers.Org.ParserState ( optionsToParserState )
 
-import           Text.Pandoc.Definition
+import           Text.Pandoc.Definition(Pandoc(Pandoc))
 import           Text.Pandoc.Error
 import           Text.Pandoc.Options
 

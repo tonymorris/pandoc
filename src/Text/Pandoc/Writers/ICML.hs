@@ -124,7 +124,7 @@ citeName          = "Cite"
 
 -- | Convert Pandoc document to string in ICML format.
 writeICML :: WriterOptions -> Pandoc -> IO String
-writeICML opts (Pandoc meta blocks) = do
+writeICML opts (Pandoc mt blx) = do
   let colwidth = if writerWrapText opts == WrapAuto
                     then Just $ writerColumns opts
                     else Nothing
@@ -133,8 +133,8 @@ writeICML opts (Pandoc meta blocks) = do
   metadata <- metaToJSON opts
              (renderMeta blocksToICML)
              (renderMeta inlinesToICML)
-             meta
-  (doc, st) <- runStateT (blocksToICML opts [] blocks) defaultWriterState
+             mt
+  (doc, st) <- runStateT (blocksToICML opts [] blx) defaultWriterState
   let main    = render' doc
       context = defField "body" main
               $ defField "charStyles" (render' $ charStylesToDoc st)
@@ -303,7 +303,7 @@ blockToICML opts style (CodeBlock _ str) = parStyle opts (codeBlockName:style) $
 blockToICML _ _ (RawBlock f str)
   | f == Format "icml" = return $ text str
   | otherwise          = return empty
-blockToICML opts style (BlockQuote blocks) = blocksToICML opts (blockQuoteName:style) blocks
+blockToICML opts style (BlockQuote blx) = blocksToICML opts (blockQuoteName:style) blx
 blockToICML opts style (OrderedList attribs lst) = listItemsToICML opts orderedListName style (Just attribs) lst
 blockToICML opts style (BulletList lst) = listItemsToICML opts bulletListName style Nothing lst
 blockToICML opts style (DefinitionList lst) = intersperseBrs `fmap` mapM (definitionListItemToICML opts style) lst
@@ -395,7 +395,7 @@ listItemToICML opts style isFirst attribs item =
   in  if length item > 1
          then do
            let insertTab (Para lst) = blockToICML opts (subListParName:style) $ Para $ (Str "\t"):lst
-               insertTab block      = blockToICML opts style block
+               insertTab blk      = blockToICML opts style blk
            f <- blockToICML opts stl' $ head item
            r <- mapM insertTab $ tail item
            return $ intersperseBrs (f : r)
@@ -455,7 +455,7 @@ inlineToICML opts style (Span _ lst) = inlinesToICML opts style lst
 footnoteToICML :: WriterOptions -> Style -> [Block] -> WS Doc
 footnoteToICML opts style lst =
   let insertTab (Para ls) = blockToICML opts (footnoteName:style) $ Para $ (Str "\t"):ls
-      insertTab block     = blockToICML opts (footnoteName:style) block
+      insertTab blk     = blockToICML opts (footnoteName:style) blk
   in  do
     contents <- mapM insertTab lst
     let number = inTags True "ParagraphStyleRange" [] $

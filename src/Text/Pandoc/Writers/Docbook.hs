@@ -74,8 +74,8 @@ authorToDocbook opts name' =
 
 -- | Convert Pandoc document to string in Docbook format.
 writeDocbook :: WriterOptions -> Pandoc -> String
-writeDocbook opts (Pandoc meta blocks) =
-  let elements = hierarchicalize blocks
+writeDocbook opts (Pandoc mt blx) =
+  let elements = hierarchicalize blx
       colwidth = if writerWrapText opts == WrapAuto
                     then Just $ writerColumns opts
                     else Nothing
@@ -91,8 +91,8 @@ writeDocbook opts (Pandoc meta blocks) =
                    TopLevelChapter -> 0
                    TopLevelSection -> 1
                    TopLevelDefault -> 1
-      auths'   = map (authorToDocbook opts) $ docAuthors meta
-      meta'    = B.setMeta "author" auths' meta
+      auths'   = map (authorToDocbook opts) $ docAuthors mt
+      meta'    = B.setMeta "author" auths' mt
       Just metadata = metaToJSON opts
                  (Just . render colwidth . (vcat .
                           (map (elementToDocbook opts' startLvl)) . hierarchicalize))
@@ -110,7 +110,7 @@ writeDocbook opts (Pandoc meta blocks) =
 
 -- | Convert an Element to Docbook.
 elementToDocbook :: WriterOptions -> Int -> Element -> Doc
-elementToDocbook opts _   (Blk block) = blockToDocbook opts block
+elementToDocbook opts _   (Blk blk) = blockToDocbook opts blk
 elementToDocbook opts lvl (Sec _ _num (id',_,_) title elements) =
   -- Docbook doesn't allow sections with no content, so insert some if needed
   let elements' = if null elements
@@ -210,8 +210,8 @@ blockToDocbook opts (Para lst)
   | otherwise         = inTagsIndented "para" $ inlinesToDocbook opts lst
 blockToDocbook opts (LineBlock lns) =
   blockToDocbook opts $ linesToPara lns
-blockToDocbook opts (BlockQuote blocks) =
-  inTagsIndented "blockquote" $ blocksToDocbook opts blocks
+blockToDocbook opts (BlockQuote blx) =
+  inTagsIndented "blockquote" $ blocksToDocbook opts blx
 blockToDocbook _ (CodeBlock (_,classes,_) str) =
   text ("<programlisting" ++ lang ++ ">") <> cr <>
      flush (text (escapeStringForXML str) <> cr <> text "</programlisting>")

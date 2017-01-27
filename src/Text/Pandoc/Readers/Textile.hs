@@ -52,7 +52,7 @@ TODO : refactor common patterns across readers :
 
 module Text.Pandoc.Readers.Textile ( readTextile) where
 import Text.Pandoc.CSS
-import Text.Pandoc.Definition
+import Text.Pandoc.Definition(Attr, Alignment(AlignDefault, AlignCenter, AlignRight, AlignLeft), Pandoc(Pandoc), nullAttr, nullMeta, Inline(Str))
 import Text.Pandoc.Builder (Inlines, Blocks, trimInlines)
 import qualified Text.Pandoc.Builder as B
 import Text.Pandoc.Options

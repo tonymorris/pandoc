@@ -40,7 +40,7 @@ module Text.Pandoc.Readers.HTML ( readHtml
 
 import Text.HTML.TagSoup
 import Text.HTML.TagSoup.Match
-import Text.Pandoc.Definition
+import Text.Pandoc.Definition (Format(Format), Inline(RawInline, Note, Str), Attr, Alignment(AlignDefault), ListNumberDelim(DefaultDelim), ListNumberStyle(Decimal, DefaultStyle, UpperRoman, UpperAlpha, LowerAlpha, LowerRoman), Pandoc(Pandoc), Block(Para, Plain), QuoteType(DoubleQuote, SingleQuote), Block(DefinitionList, OrderedList, BulletList, BlockQuote, Header, CodeBlock))
 import qualified Text.Pandoc.Builder as B
 import Text.Pandoc.Builder (Blocks, Inlines, trimInlines, HasMeta(..))
 import Text.Pandoc.Shared ( extractSpaces, renderTags', addMetaField
@@ -57,6 +57,7 @@ import Data.Char ( isDigit )
 import Control.Monad ( guard, when, mzero, void, unless )
 import Control.Arrow ((***))
 import Control.Applicative ( (<|>) )
+import Control.Lens(lens)
 import Data.Monoid (First (..))
 import Text.Printf (printf)
 import Debug.Trace (trace)
@@ -83,9 +84,9 @@ readHtml opts inp =
                    parseTagsOptions parseOptions{ optTagPosition = True } inp
           parseDoc = do
              blocks <- (fixPlains False) . mconcat <$> manyTill block eof
-             meta <- stateMeta . parserState <$> getState
+             mt <- stateMeta . parserState <$> getState
              bs' <- replaceNotes (B.toList blocks)
-             return $ Pandoc meta bs'
+             return $ Pandoc mt bs'
           getError (errorMessages -> ms) = case ms of
                                                 []    -> ""
                                                 (m:_) -> messageString m
@@ -1078,9 +1079,13 @@ instance HasReaderOptions HTMLState where
     extractReaderOptions = extractReaderOptions . parserState
 
 instance HasMeta HTMLState where
-  setMeta s b st = st {parserState = setMeta s b $ parserState st}
-  deleteMeta s st = st {parserState = deleteMeta s $ parserState st}
-
+  meta =
+    let parserStateL =
+          lens
+            parserState
+            (\hs p -> hs { parserState = p })
+    in  parserStateL . meta
+  
 instance Default HTMLLocal where
   def = HTMLLocal NoQuote False False
 

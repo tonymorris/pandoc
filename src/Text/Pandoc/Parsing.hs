@@ -189,6 +189,7 @@ import Text.Pandoc.Asciify (toAsciiChar)
 import Data.Monoid ((<>))
 import Data.Default
 import qualified Data.Set as Set
+import Control.Lens(lens)
 import Control.Monad.Reader
 import Control.Monad.Identity
 import Data.Maybe (catMaybes)
@@ -790,8 +791,8 @@ gridTableWith :: Stream [Char] m Char
               => ParserT [Char] ParserState m [Block]   -- ^ Block list parser
               -> Bool                                -- ^ Headerless table
               -> ParserT [Char] ParserState m Block
-gridTableWith blocks headless =
-  tableWith (gridTableHeader headless blocks) (gridTableRow blocks)
+gridTableWith blx headless =
+  tableWith (gridTableHeader headless blx) (gridTableRow blx)
             (gridTableSep '-') gridTableFooter
 
 gridTableSplitLine :: [Int] -> String -> [String]
@@ -820,7 +821,7 @@ gridTableHeader :: Stream [Char] m Char
                 => Bool -- ^ Headerless table
                 -> ParserT [Char] ParserState m [Block]
                 -> ParserT [Char] ParserState m ([[Block]], [Alignment], [Int])
-gridTableHeader headless blocks = try $ do
+gridTableHeader headless blx = try $ do
   optional blanklines
   dashes <- gridDashedLines '-'
   rawContent  <- if headless
@@ -839,7 +840,7 @@ gridTableHeader headless blocks = try $ do
                     then replicate (length dashes) ""
                     else map (intercalate " ") $ transpose
                        $ map (gridTableSplitLine indices) rawContent
-  heads <- mapM (parseFromString blocks) $ map trim rawHeads
+  heads <- mapM (parseFromString blx) $ map trim rawHeads
   return (heads, aligns, indices)
 
 gridTableRawLine :: Stream s m Char => [Int] -> ParserT s ParserState m [String]
@@ -853,11 +854,11 @@ gridTableRow :: Stream [Char]  m Char
              => ParserT [Char] ParserState m [Block]
              -> [Int]
              -> ParserT [Char] ParserState m [[Block]]
-gridTableRow blocks indices = do
+gridTableRow blx indices = do
   colLines <- many1 (gridTableRawLine indices)
   let cols = map ((++ "\n") . unlines . removeOneLeadingSpace) $
                transpose colLines
-  mapM (liftM compactifyCell . parseFromString blocks) cols
+  mapM (liftM compactifyCell . parseFromString blx) cols
 
 removeOneLeadingSpace :: [String] -> [String]
 removeOneLeadingSpace xs =
@@ -946,11 +947,11 @@ instance Default ParserState where
   def = defaultParserState
 
 instance HasMeta ParserState where
-  setMeta field val st =
-    st{ stateMeta = setMeta field val $ stateMeta st }
-  deleteMeta field st =
-    st{ stateMeta = deleteMeta field $ stateMeta st }
-
+  meta =
+    lens
+      stateMeta
+      (\ps m -> ps { stateMeta = m })
+  
 class HasReaderOptions st where
   extractReaderOptions :: st -> ReaderOptions
   getOption            :: (Stream s m t) => (ReaderOptions -> b) -> ParserT s st m b

@@ -36,7 +36,7 @@ _ parse templates?
 -}
 module Text.Pandoc.Readers.MediaWiki ( readMediaWiki ) where
 
-import Text.Pandoc.Definition
+import Text.Pandoc.Definition (Inline(Code, Space, Str), Alignment(AlignRight, AlignCenter, AlignLeft, AlignDefault), ListNumberDelim(DefaultDelim), ListNumberStyle(DefaultStyle), Pandoc, Block(Para, Plain), nullAttr)
 import qualified Text.Pandoc.Builder as B
 import Text.Pandoc.Builder (Inlines, Blocks, trimInlines)
 import Data.Monoid ((<>))
