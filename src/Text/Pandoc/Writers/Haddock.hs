@@ -56,11 +56,11 @@ writeHaddock opts document =
 
 -- | Return haddock representation of document.
 pandocToHaddock :: WriterOptions -> Pandoc -> State WriterState String
-pandocToHaddock opts (Pandoc meta blocks) = do
+pandocToHaddock opts (Pandoc mt blx) = do
   let colwidth = if writerWrapText opts == WrapAuto
                     then Just $ writerColumns opts
                     else Nothing
-  body <- blockListToHaddock opts blocks
+  body <- blockListToHaddock opts blx
   st <- get
   notes' <- notesToHaddock opts (reverse $ stNotes st)
   let render' :: Doc -> String
@@ -70,7 +70,7 @@ pandocToHaddock opts (Pandoc meta blocks) = do
   metadata <- metaToJSON opts
                (fmap (render colwidth) . blockListToHaddock opts)
                (fmap (render colwidth) . inlineListToHaddock opts)
-               meta
+               mt
   let context  = defField "body" main
                $ metadata
   case writerTemplate opts of
@@ -126,8 +126,8 @@ blockToHaddock opts (Header level (ident,_,_) inlines) = do
 blockToHaddock _ (CodeBlock (_,_,_) str) =
   return $ prefixed "> " (text str) <> blankline
 -- Nothing in haddock corresponds to block quotes:
-blockToHaddock opts (BlockQuote blocks) =
-  blockListToHaddock opts blocks
+blockToHaddock opts (BlockQuote blx) =
+  blockListToHaddock opts blx
 -- Haddock doesn't have tables.  Use haddock tables in code.
 blockToHaddock opts (Table caption aligns widths headers rows) = do
   caption' <- inlineListToHaddock opts caption
@@ -215,12 +215,12 @@ gridTable opts headless _aligns widths headers' rawRows =  do
                    then replicate numcols (1.0 / fromIntegral numcols)
                    else widths
   let widthsInChars = map (floor . (fromIntegral (writerColumns opts) *)) widths'
-  let hpipeBlocks blocks = hcat [beg, middle, end]
-        where h       = maximum (map height blocks)
+  let hpipeBlocks blx = hcat [beg, middle, end]
+        where h       = maximum (map height blx)
               sep'    = lblock 3 $ vcat (map text $ replicate h " | ")
               beg     = lblock 2 $ vcat (map text $ replicate h "| ")
               end     = lblock 2 $ vcat (map text $ replicate h " |")
-              middle  = chomp $ hcat $ intersperse sep' blocks
+              middle  = chomp $ hcat $ intersperse sep' blx
   let makeRow = hpipeBlocks . zipWith lblock widthsInChars
   let head' = makeRow headers'
   let rows' = map (makeRow . map chomp) rawRows
@@ -276,8 +276,8 @@ definitionListItemToHaddock opts (label, defs) = do
 blockListToHaddock :: WriterOptions -- ^ Options
                     -> [Block]       -- ^ List of block elements
                     -> State WriterState Doc
-blockListToHaddock opts blocks =
-  mapM (blockToHaddock opts) blocks >>= return . cat
+blockListToHaddock opts blx =
+  mapM (blockToHaddock opts) blx >>= return . cat
 
 -- | Convert list of Pandoc inline elements to haddock.
 inlineListToHaddock :: WriterOptions -> [Inline] -> State WriterState Doc

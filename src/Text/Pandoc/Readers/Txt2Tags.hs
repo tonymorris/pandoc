@@ -35,7 +35,7 @@ module Text.Pandoc.Readers.Txt2Tags ( readTxt2Tags
 import qualified Text.Pandoc.Builder as B
 import Text.Pandoc.Builder ( Inlines, Blocks, trimInlines )
 import Data.Monoid ((<>))
-import Text.Pandoc.Definition
+import Text.Pandoc.Definition(Alignment(AlignRight, AlignCenter, AlignLeft, AlignDefault), Pandoc(Pandoc), MetaValue(MetaString), nullAttr, lookupMeta)
 import Text.Pandoc.Options
 import Text.Pandoc.Shared (escapeURI,compactify', compactify'DL)
 import Text.Pandoc.Parsing hiding (space, spaces, uri, macro)

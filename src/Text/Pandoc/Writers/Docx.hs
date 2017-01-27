@@ -149,8 +149,8 @@ defaultWriterState = WriterState{
 type WS = ReaderT WriterEnv (StateT WriterState IO)
 
 mknode :: Node t => String -> [(String,String)] -> t -> Element
-mknode s attrs =
-  add_attrs (map (\(k,v) -> Attr (nodename k) v) attrs) .  node (nodename s)
+mknode s ats =
+  add_attrs (map (\(k,v) -> Attr (nodename k) v) ats) .  node (nodename s)
 
 nodename :: String -> QName
 nodename s = QName{ qName = name, qURI = Nothing, qPrefix = prefix }
@@ -217,7 +217,7 @@ metaValueToInlines _ = []
 writeDocx :: WriterOptions  -- ^ Writer options
           -> Pandoc         -- ^ Document to convert
           -> IO BL.ByteString
-writeDocx opts doc@(Pandoc meta _) = do
+writeDocx opts doc@(Pandoc mt _) = do
   let datadir = writerUserDataDir opts
   let doc' = walk fixDisplayMath $ doc
   username <- lookup "USERNAME" <$> getEnvironment
@@ -255,14 +255,14 @@ writeDocx opts doc@(Pandoc meta _) = do
   let styleMaps = getStyleMaps styledoc
 
   let tocTitle = fromMaybe (stTocTitle defaultWriterState) $
-                    metaValueToInlines <$> lookupMeta "toc-title" meta
+                    metaValueToInlines <$> lookupMeta "toc-title" mt
 
   let initialSt = defaultWriterState {
           stStyleMaps  = styleMaps
         , stTocTitle   = tocTitle
         }
 
-  let isRTLmeta = case lookupMeta "dir" meta of
+  let isRTLmeta = case lookupMeta "dir" mt of
         Just (MetaString "rtl")        -> True
         Just (MetaInlines [Str "rtl"]) -> True
         _                              -> False
@@ -479,8 +479,8 @@ writeDocx opts doc@(Pandoc meta _) = do
           ,("xmlns:dcterms","http://purl.org/dc/terms/")
           ,("xmlns:dcmitype","http://purl.org/dc/dcmitype/")
           ,("xmlns:xsi","http://www.w3.org/2001/XMLSchema-instance")]
-          $ mknode "dc:title" [] (stringify $ docTitle meta)
-          : mknode "dc:creator" [] (intercalate "; " (map stringify $ docAuthors meta))
+          $ mknode "dc:title" [] (stringify $ docTitle mt)
+          : mknode "dc:creator" [] (intercalate "; " (map stringify $ docAuthors mt))
           : (\x -> [ mknode "dcterms:created" [("xsi:type","dcterms:W3CDTF")] x
                    , mknode "dcterms:modified" [("xsi:type","dcterms:W3CDTF")] x
                    ]) (formatTime defaultTimeLocale "%FT%XZ" utctime)
@@ -488,7 +488,7 @@ writeDocx opts doc@(Pandoc meta _) = do
 
   let relsPath = "_rels/.rels"
   let rels = mknode "Relationships" [("xmlns", "http://schemas.openxmlformats.org/package/2006/relationships")]
-        $ map (\attrs -> mknode "Relationship" attrs ())
+        $ map (\ats -> mknode "Relationship" ats ())
         [ [("Id","rId1")
           ,("Type","http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument")
           ,("Target","word/document.xml")]
@@ -726,17 +726,17 @@ makeTOC _ = return []
 -- | Convert Pandoc document to two lists of
 -- OpenXML elements (the main document and footnotes).
 writeOpenXML :: WriterOptions -> Pandoc -> WS ([Element], [Element])
-writeOpenXML opts (Pandoc meta blocks) = do
-  let tit = docTitle meta ++ case lookupMeta "subtitle" meta of
+writeOpenXML opts (Pandoc mt blx) = do
+  let tit = docTitle mt ++ case lookupMeta "subtitle" mt of
                                   Just (MetaBlocks [Plain xs]) -> LineBreak : xs
                                   _ -> []
-  let auths = docAuthors meta
-  let dat = docDate meta
-  let abstract' = case lookupMeta "abstract" meta of
+  let auths = docAuthors mt
+  let dat = docDate mt
+  let abstract' = case lookupMeta "abstract" mt of
                        Just (MetaBlocks bs) -> bs
                        Just (MetaInlines ils) -> [Plain ils]
                        _ -> []
-  let subtitle' = case lookupMeta "subtitle" meta of
+  let subtitle' = case lookupMeta "subtitle" mt of
                        Just (MetaBlocks [Plain xs]) -> xs
                        Just (MetaBlocks [Para  xs]) -> xs
                        Just (MetaInlines xs)        -> xs
@@ -752,7 +752,7 @@ writeOpenXML opts (Pandoc meta blocks) = do
   let convertSpace (Str x : Space : Str y : xs) = Str (x ++ " " ++ y) : xs
       convertSpace (Str x : Str y : xs) = Str (x ++ y) : xs
       convertSpace xs = xs
-  let blocks' = bottomUp convertSpace blocks
+  let blocks' = bottomUp convertSpace blx
   doc' <- (setFirstPara >> blocksToOpenXML opts blocks')
   notes' <- reverse `fmap` gets stFootnotes
   toc <- makeTOC opts
@@ -863,12 +863,12 @@ blockToOpenXML' opts (LineBlock lns) = blockToOpenXML opts $ linesToPara lns
 blockToOpenXML' _ (RawBlock format str)
   | format == Format "openxml" = return [ x | Elem x <- parseXML str ]
   | otherwise                  = return []
-blockToOpenXML' opts (BlockQuote blocks) = do
-  p <- withParaPropM (pStyleM "Block Text") $ blocksToOpenXML opts blocks
+blockToOpenXML' opts (BlockQuote blx) = do
+  p <- withParaPropM (pStyleM "Block Text") $ blocksToOpenXML opts blx
   setFirstPara
   return p
-blockToOpenXML' opts (CodeBlock attrs str) = do
-  p <- withParaProp (pCustomStyle "SourceCode") (blockToOpenXML opts $ Para [Code attrs str])
+blockToOpenXML' opts (CodeBlock ats str) = do
+  p <- withParaProp (pCustomStyle "SourceCode") (blockToOpenXML opts $ Para [Code ats str])
   setFirstPara
   return p
 blockToOpenXML' _ HorizontalRule = do
@@ -1103,13 +1103,13 @@ inlineToOpenXML' _ LineBreak = return [br]
 inlineToOpenXML' _ (RawInline f str)
   | f == Format "openxml" = return [ x | Elem x <- parseXML str ]
   | otherwise            = return []
-inlineToOpenXML' opts (Quoted quoteType lst) =
+inlineToOpenXML' opts (Quoted quoteTp lst) =
   inlinesToOpenXML opts $ [Str open] ++ lst ++ [Str close]
-    where (open, close) = case quoteType of
+    where (open, close) = case quoteTp of
                             SingleQuote -> ("\x2018", "\x2019")
                             DoubleQuote -> ("\x201C", "\x201D")
-inlineToOpenXML' opts (Math mathType str) = do
-  let displayType = if mathType == DisplayMath
+inlineToOpenXML' opts (Math mathTp str) = do
+  let displayType = if mathTp == DisplayMath
                        then DisplayBlock
                        else DisplayInline
   when (displayType == DisplayBlock) setFirstPara
@@ -1118,9 +1118,9 @@ inlineToOpenXML' opts (Math mathType str) = do
         Left  e -> do
           warn $ "Cannot convert the following TeX math, skipping:\n" ++ str ++
                  "\n" ++ e
-          inlinesToOpenXML opts (texMathToInlines mathType str)
+          inlinesToOpenXML opts (texMathToInlines mathTp str)
 inlineToOpenXML' opts (Cite _ lst) = inlinesToOpenXML opts lst
-inlineToOpenXML' opts (Code attrs str) = do
+inlineToOpenXML' opts (Code ats str) = do
   let unhighlighted = intercalate [br] `fmap`
                        (mapM formattedString $ lines str)
       formatOpenXML _fmtOpts = intercalate [br] . map (map toHlTok)
@@ -1130,7 +1130,7 @@ inlineToOpenXML' opts (Code attrs str) = do
                                , mknode "w:t" [("xml:space","preserve")] (T.unpack tok) ]
   withTextProp (rCustomStyle "VerbatimChar")
     $ if writerHighlight opts
-         then case highlight formatOpenXML attrs str of
+         then case highlight formatOpenXML ats str of
                Nothing  -> unhighlighted
                Just h   -> return h
          else unhighlighted

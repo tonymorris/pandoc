@@ -63,15 +63,15 @@ writeConTeXt options document =
   in evalState (pandocToConTeXt options document) defaultWriterState
 
 pandocToConTeXt :: WriterOptions -> Pandoc -> State WriterState String
-pandocToConTeXt options (Pandoc meta blocks) = do
+pandocToConTeXt options (Pandoc mt blx) = do
   let colwidth = if writerWrapText options == WrapAuto
                     then Just $ writerColumns options
                     else Nothing
   metadata <- metaToJSON options
               (fmap (render colwidth) . blockListToConTeXt)
               (fmap (render colwidth) . inlineListToConTeXt)
-              meta
-  body <- mapM (elementToConTeXt options) $ hierarchicalize blocks
+              mt
+  body <- mapM (elementToConTeXt options) $ hierarchicalize blx
   let main = (render colwidth . vcat) body
   let layoutFromMargins = intercalate [','] $ catMaybes $
                               map (\(x,y) ->
@@ -142,7 +142,7 @@ toLabel z = concatMap go z
 
 -- | Convert Elements to ConTeXt
 elementToConTeXt :: WriterOptions -> Element -> State WriterState Doc
-elementToConTeXt _ (Blk block) = blockToConTeXt block
+elementToConTeXt _ (Blk blk) = blockToConTeXt blk
 elementToConTeXt opts (Sec level _ attr title' elements) = do
   header' <- sectionHeader attr level title'
   innerContents <- mapM (elementToConTeXt opts) elements

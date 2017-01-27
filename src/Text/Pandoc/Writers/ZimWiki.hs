@@ -60,12 +60,12 @@ writeZimWiki opts document = evalState (pandocToZimWiki opts document) (WriterSt
 
 -- | Return ZimWiki representation of document.
 pandocToZimWiki :: WriterOptions -> Pandoc -> State WriterState String
-pandocToZimWiki opts (Pandoc meta blocks) = do
+pandocToZimWiki opts (Pandoc mt blx) = do
   metadata <- metaToJSON opts
               (fmap trimr . blockListToZimWiki opts)
               (inlineListToZimWiki opts)
-              meta
-  body <- blockListToZimWiki opts blocks
+              mt
+  body <- blockListToZimWiki opts blx
   --let header = "Content-Type: text/x-zim-wiki\nWiki-Format: zim 0.4\n"
   let main = body
   let context = defField "body" main
@@ -132,8 +132,8 @@ blockToZimWiki _ (CodeBlock (_,classes,_) str) = do
                 []              -> "'''\n" ++ cleanupCode str ++ "\n'''\n" -- no lang block is a quote block
                 (x:_)   -> "{{{code: lang=\"" ++ x ++ "\" linenumbers=\"True\"\n" ++ str ++ "\n}}}\n"    -- for zim's code plugin, go verbatim on the lang spec
 
-blockToZimWiki opts (BlockQuote blocks) = do
-  contents <- blockListToZimWiki opts blocks
+blockToZimWiki opts (BlockQuote blx) = do
+  contents <- blockListToZimWiki opts blx
   return $ unlines $ map ("> " ++) $ lines contents
 
 blockToZimWiki opts (Table capt aligns _ headers rows) = do
@@ -259,7 +259,7 @@ tableItemToZimWiki opts align' item = do
 
 -- | Convert list of Pandoc block elements to ZimWiki.
 blockListToZimWiki :: WriterOptions -> [Block] -> State WriterState String
-blockListToZimWiki opts blocks = vcat <$> mapM (blockToZimWiki opts) blocks
+blockListToZimWiki opts blx = vcat <$> mapM (blockToZimWiki opts) blx
 
 -- | Convert list of Pandoc inline elements to ZimWiki.
 inlineListToZimWiki :: WriterOptions -> [Inline] -> State WriterState String
@@ -306,8 +306,8 @@ inlineToZimWiki _ (Code _ str) = return $ "''" ++ str ++ "''"
 
 inlineToZimWiki _ (Str str) = return $ escapeString str
 
-inlineToZimWiki _ (Math mathType str) = return $ delim ++ str ++ delim   -- note:  str should NOT be escaped
-  where delim = case mathType of
+inlineToZimWiki _ (Math mathTp str) = return $ delim ++ str ++ delim   -- note:  str should NOT be escaped
+  where delim = case mathTp of
                      DisplayMath -> "$$"
                      InlineMath  -> "$"
 

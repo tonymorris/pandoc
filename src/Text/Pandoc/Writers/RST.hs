@@ -68,22 +68,22 @@ writeRST opts document =
 
 -- | Return RST representation of document.
 pandocToRST :: Pandoc -> State WriterState String
-pandocToRST (Pandoc meta blocks) = do
+pandocToRST (Pandoc mt blx) = do
   opts <- liftM stOptions get
   let colwidth = if writerWrapText opts == WrapAuto
                     then Just $ writerColumns opts
                     else Nothing
-  let subtit = case lookupMeta "subtitle" meta of
+  let subtit = case lookupMeta "subtitle" mt of
                     Just (MetaBlocks [Plain xs]) -> xs
                     _ -> []
-  title <- titleToRST (docTitle meta) subtit
+  title <- titleToRST (docTitle mt) subtit
   metadata <- metaToJSON opts
                 (fmap (render colwidth) . blockListToRST)
                 (fmap (trimr . render colwidth) . inlineListToRST)
-                $ deleteMeta "title" $ deleteMeta "subtitle" meta
+                $ deleteMeta "title" $ deleteMeta "subtitle" mt
   body <- blockListToRST' True $ case writerTemplate opts of
-                                      Just _  -> normalizeHeadings 1 blocks
-                                      Nothing -> blocks
+                                      Just _  -> normalizeHeadings 1 blx
+                                      Nothing -> blx
   notes <- liftM (reverse . stNotes) get >>= notesToRST
   -- note that the notes may contain refs, so we do them first
   refs <- liftM (reverse . stLinks) get >>= refsToRST
@@ -245,9 +245,9 @@ blockToRST (CodeBlock (_,classes,kvs) str) = do
              []       -> "::"
              (lang:_) -> (".. code:: " <> text lang) $$ numberlines)
           $+$ nest tabstop (text str) $$ blankline
-blockToRST (BlockQuote blocks) = do
+blockToRST (BlockQuote blx) = do
   tabstop <- get >>= (return . writerTabStop . stOptions)
-  contents <- blockListToRST blocks
+  contents <- blockListToRST blx
   return $ (nest tabstop contents) <> blankline
 blockToRST (Table caption _ widths headers rows) =  do
   caption' <- inlineListToRST caption
@@ -267,12 +267,12 @@ blockToRST (Table caption _ widths headers rows) =  do
        if all (== 0) widths
           then map ((+2) . numChars) $ transpose (headers' : rawRows)
           else map (floor . (fromIntegral (writerColumns opts) *)) widths
-  let hpipeBlocks blocks = hcat [beg, middle, end]
-        where h      = height (hcat blocks)
+  let hpipeBlocks blx = hcat [beg, middle, end]
+        where h      = height (hcat blx)
               sep'   = lblock 3 $ vcat (map text $ replicate h " | ")
               beg    = lblock 2 $ vcat (map text $ replicate h "| ")
               end    = lblock 2 $ vcat (map text $ replicate h " |")
-              middle = hcat $ intersperse sep' blocks
+              middle = hcat $ intersperse sep' blx
   let makeRow = hpipeBlocks . zipWith lblock widthsInChars
   let head' = makeRow headers'
   let rows' = map makeRow rawRows
@@ -339,10 +339,10 @@ linesToLineBlock inlineLines = do
 blockListToRST' :: Bool
                 -> [Block]       -- ^ List of block elements
                 -> State WriterState Doc
-blockListToRST' topLevel blocks = do
+blockListToRST' topLevel blx = do
   tl <- gets stTopLevel
   modify (\s->s{stTopLevel=topLevel})
-  res <- vcat `fmap` mapM blockToRST blocks
+  res <- vcat `fmap` mapM blockToRST blx
   modify (\s->s{stTopLevel=tl})
   return res
 

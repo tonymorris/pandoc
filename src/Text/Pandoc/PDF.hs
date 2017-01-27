@@ -72,13 +72,13 @@ makePDF :: String              -- ^ pdf creator (pdflatex, lualatex,
         -> WriterOptions       -- ^ options
         -> Pandoc              -- ^ document
         -> IO (Either ByteString ByteString)
-makePDF "wkhtmltopdf" writer opts doc@(Pandoc meta _) = do
+makePDF "wkhtmltopdf" writer opts doc@(Pandoc mt _) = do
   let mathArgs = case writerHTMLMathMethod opts of
                  -- with MathJax, wait til all math is rendered:
                       MathJax _ -> ["--run-script", "MathJax.Hub.Register.StartupHook('End Typeset', function() { window.status = 'mathjax_loaded' });",
                                     "--window-status", "mathjax_loaded"]
                       _ -> []
-  meta' <- metaToJSON opts (return . stringify) (return . stringify) meta
+  meta' <- metaToJSON opts (return . stringify) (return . stringify) mt
   let toArgs (f, mbd) = maybe [] (\d -> ['-':'-':f, d]) mbd
   let args   = mathArgs ++
                concatMap toArgs

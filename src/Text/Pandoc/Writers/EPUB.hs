@@ -144,8 +144,8 @@ removeNote (Note _) = Str ""
 removeNote x        = x
 
 getEPUBMetadata :: WriterOptions -> Meta -> IO EPUBMetadata
-getEPUBMetadata opts meta = do
-  let md = metadataFromMeta opts meta
+getEPUBMetadata opts mt = do
+  let md = metadataFromMeta opts mt
   let elts = onlyElems $ parseXML $ writerEpubMetadata opts
   let md' = foldr addMetadataFromXML md elts
   let addIdentifier m =
@@ -177,7 +177,7 @@ getEPUBMetadata opts meta = do
        if any (\c -> creatorRole c == Just "aut") $ epubCreator m
           then return m
           else do
-            let authors' = map stringify $ docAuthors meta
+            let authors' = map stringify $ docAuthors mt
             let toAuthor name = Creator{ creatorText = name
                                        , creatorRole = Just "aut"
                                        , creatorFileAs = Nothing }
@@ -185,10 +185,10 @@ getEPUBMetadata opts meta = do
   addIdentifier md' >>= fixDate >>= addAuthor >>= addLanguage
 
 addMetadataFromXML :: Element -> EPUBMetadata -> EPUBMetadata
-addMetadataFromXML e@(Element (QName name _ (Just "dc")) attrs _ _) md
+addMetadataFromXML e@(Element (QName name _ (Just "dc")) ats _ _) md
   | name == "identifier" = md{ epubIdentifier =
              Identifier{ identifierText = strContent e
-                       , identifierScheme = lookupAttr (opfName "scheme") attrs
+                       , identifierScheme = lookupAttr (opfName "scheme") ats
                        } : epubIdentifier md }
   | name == "title" = md{ epubTitle =
             Title{ titleText = strContent e
@@ -221,7 +221,7 @@ addMetadataFromXML e@(Element (QName name _ (Just "dc")) attrs _ _) md
   | name == "coverage" = md { epubCoverage = Just $ strContent e }
   | name == "rights" = md { epubRights = Just $ strContent e }
   | otherwise = md
-  where getAttr n = lookupAttr (opfName n) attrs
+  where getAttr n = lookupAttr (opfName n) ats
 addMetadataFromXML _ md = md
 
 metaValueToString :: MetaValue -> String
@@ -233,14 +233,14 @@ metaValueToString (MetaBool False) = "false"
 metaValueToString _ = ""
 
 getList :: String -> Meta -> (MetaValue -> a) -> [a]
-getList s meta handleMetaValue =
-  case lookupMeta s meta of
+getList s mt handleMetaValue =
+  case lookupMeta s mt of
        Just (MetaList xs) -> map handleMetaValue xs
        Just mv            -> [handleMetaValue mv]
        Nothing            -> []
 
 getIdentifier :: Meta -> [Identifier]
-getIdentifier meta = getList "identifier" meta handleMetaValue
+getIdentifier mt = getList "identifier" mt handleMetaValue
   where handleMetaValue (MetaMap m) =
            Identifier{ identifierText = maybe "" metaValueToString
                                         $ M.lookup "text" m
@@ -249,7 +249,7 @@ getIdentifier meta = getList "identifier" meta handleMetaValue
         handleMetaValue mv = Identifier (metaValueToString mv) Nothing
 
 getTitle :: Meta -> [Title]
-getTitle meta = getList "title" meta handleMetaValue
+getTitle mt = getList "title" mt handleMetaValue
   where handleMetaValue (MetaMap m) =
            Title{ titleText = maybe "" metaValueToString $ M.lookup "text" m
                 , titleFileAs = metaValueToString <$> M.lookup "file-as" m
@@ -257,7 +257,7 @@ getTitle meta = getList "title" meta handleMetaValue
         handleMetaValue mv = Title (metaValueToString mv) Nothing Nothing
 
 getCreator :: String -> Meta -> [Creator]
-getCreator s meta = getList s meta handleMetaValue
+getCreator s mt = getList s mt handleMetaValue
   where handleMetaValue (MetaMap m) =
            Creator{ creatorText = maybe "" metaValueToString $ M.lookup "text" m
                   , creatorFileAs = metaValueToString <$> M.lookup "file-as" m
@@ -265,7 +265,7 @@ getCreator s meta = getList s meta handleMetaValue
         handleMetaValue mv = Creator (metaValueToString mv) Nothing Nothing
 
 getDate :: String -> Meta -> [Date]
-getDate s meta = getList s meta handleMetaValue
+getDate s mt = getList s mt handleMetaValue
   where handleMetaValue (MetaMap m) =
            Date{ dateText = maybe "" id $
                    M.lookup "text" m >>= normalizeDate' . metaValueToString
@@ -275,14 +275,14 @@ getDate s meta = getList s meta handleMetaValue
                                   , dateEvent = Nothing }
 
 simpleList :: String -> Meta -> [String]
-simpleList s meta =
-  case lookupMeta s meta of
+simpleList s mt =
+  case lookupMeta s mt of
        Just (MetaList xs) -> map metaValueToString xs
        Just x -> [metaValueToString x]
        Nothing -> []
 
 metadataFromMeta :: WriterOptions -> Meta -> EPUBMetadata
-metadataFromMeta opts meta = EPUBMetadata{
+metadataFromMeta opts mt = EPUBMetadata{
       epubIdentifier         = identifiers
     , epubTitle              = titles
     , epubDate               = date
@@ -302,29 +302,29 @@ metadataFromMeta opts meta = EPUBMetadata{
     , epubStylesheet         = stylesheet
     , epubPageDirection      = pageDirection
     }
-  where identifiers = getIdentifier meta
-        titles = getTitle meta
-        date = getDate "date" meta
+  where identifiers = getIdentifier mt
+        titles = getTitle mt
+        date = getDate "date" mt
         language = maybe "" metaValueToString $
-           lookupMeta "language" meta `mplus` lookupMeta "lang" meta
-        creators = getCreator "creator" meta
-        contributors = getCreator "contributor" meta
-        subjects = simpleList "subject" meta
-        description = metaValueToString <$> lookupMeta "description" meta
-        epubtype = metaValueToString <$> lookupMeta "type" meta
-        format = metaValueToString <$> lookupMeta "format" meta
-        publisher = metaValueToString <$> lookupMeta "publisher" meta
-        source = metaValueToString <$> lookupMeta "source" meta
-        relation = metaValueToString <$> lookupMeta "relation" meta
-        coverage = metaValueToString <$> lookupMeta "coverage" meta
-        rights = metaValueToString <$> lookupMeta "rights" meta
+           lookupMeta "language" mt `mplus` lookupMeta "lang" mt
+        creators = getCreator "creator" mt
+        contributors = getCreator "contributor" mt
+        subjects = simpleList "subject" mt
+        description = metaValueToString <$> lookupMeta "description" mt
+        epubtype = metaValueToString <$> lookupMeta "type" mt
+        format = metaValueToString <$> lookupMeta "format" mt
+        publisher = metaValueToString <$> lookupMeta "publisher" mt
+        source = metaValueToString <$> lookupMeta "source" mt
+        relation = metaValueToString <$> lookupMeta "relation" mt
+        coverage = metaValueToString <$> lookupMeta "coverage" mt
+        rights = metaValueToString <$> lookupMeta "rights" mt
         coverImage = lookup "epub-cover-image" (writerVariables opts) `mplus`
-             (metaValueToString <$> lookupMeta "cover-image" meta)
+             (metaValueToString <$> lookupMeta "cover-image" mt)
         stylesheet = (StylesheetContents <$> writerEpubStylesheet opts) `mplus`
                      ((StylesheetPath . metaValueToString) <$>
-                       lookupMeta "stylesheet" meta)
+                       lookupMeta "stylesheet" mt)
         pageDirection = case map toLower . metaValueToString <$>
-                             lookupMeta "page-progression-direction" meta of
+                             lookupMeta "page-progression-direction" mt of
                               Just "ltr" -> Just LTR
                               Just "rtl" -> Just RTL
                               _          -> Nothing
@@ -333,7 +333,7 @@ metadataFromMeta opts meta = EPUBMetadata{
 writeEPUB :: WriterOptions  -- ^ Writer options
           -> Pandoc         -- ^ Document to convert
           -> IO B.ByteString
-writeEPUB opts doc@(Pandoc meta _) = do
+writeEPUB opts doc@(Pandoc mt _) = do
   let version = fromMaybe EPUB2 (writerEpubVersion opts)
   let epub3 = version == EPUB3
   epochtime <- floor `fmap` getPOSIXTime
@@ -350,7 +350,7 @@ writeEPUB opts doc@(Pandoc meta _) = do
                           then MathML Nothing
                           else writerHTMLMathMethod opts
                   , writerWrapText = WrapAuto }
-  metadata <- getEPUBMetadata opts' meta
+  metadata <- getEPUBMetadata opts' mt
 
   -- cover page
   (cpgEntry, cpicEntry) <-
@@ -360,7 +360,7 @@ writeEPUB opts doc@(Pandoc meta _) = do
                        let coverImage = "media/" ++ takeFileName img
                        let cpContent = renderHtml $ writeHtml
                             opts'{ writerVariables = ("coverpage","true"):vars }
-                            (Pandoc meta [RawBlock (Format "html") $ "<div id=\"cover-image\">\n<img src=\"" ++ coverImage ++ "\" alt=\"cover image\" />\n</div>"])
+                            (Pandoc mt [RawBlock (Format "html") $ "<div id=\"cover-image\">\n<img src=\"" ++ coverImage ++ "\" alt=\"cover image\" />\n</div>"])
                        imgContent <- B.readFile img
                        return ( [mkEntry "cover.xhtml" cpContent]
                               , [mkEntry coverImage imgContent] )
@@ -368,12 +368,12 @@ writeEPUB opts doc@(Pandoc meta _) = do
   -- title page
   let tpContent = renderHtml $ writeHtml opts'{
                       writerVariables = ("titlepage","true"):vars }
-                      (Pandoc meta [])
+                      (Pandoc mt [])
   let tpEntry = mkEntry "title_page.xhtml" tpContent
 
   -- handle pictures
   mediaRef <- newIORef []
-  Pandoc _ blocks <- walkM (transformInline opts' mediaRef) doc >>=
+  Pandoc _ blx <- walkM (transformInline opts' mediaRef) doc >>=
                      walkM (transformBlock opts' mediaRef)
   picEntries <- (catMaybes . map (snd . snd)) <$> readIORef mediaRef
 
@@ -399,10 +399,10 @@ writeEPUB opts doc@(Pandoc meta _) = do
 
   -- add level 1 header to beginning if none there
   let blocks' = addIdentifiers
-                $ case blocks of
-                      (Header 1 _ _ : _) -> blocks
+                $ case blx of
+                      (Header 1 _ _ : _) -> blx
                       _                  -> Header 1 ("",["unnumbered"],[])
-                                                 (docTitle' meta) : blocks
+                                                 (docTitle' mt) : blx
 
   let chapterHeaderLevel = writerEpubChapterLevel opts
 
@@ -509,14 +509,14 @@ writeEPUB opts doc@(Pandoc meta _) = do
                            [("id", toId $ eRelativePath ent),
                             ("href", eRelativePath ent),
                             ("media-type", fromMaybe "" $ getMimeType $ eRelativePath ent)] $ ()
-  let plainTitle = case docTitle' meta of
+  let plainTitle = case docTitle' mt of
                         [] -> case epubTitle metadata of
                                    []   -> "UNTITLED"
                                    (x:_) -> titleText x
                         x  -> stringify x
 
   let tocTitle = fromMaybe plainTitle $
-                   metaValueToString <$> lookupMeta "toc-title" meta
+                   metaValueToString <$> lookupMeta "toc-title" mt
   let uuid = case epubIdentifier metadata of
                   (x:_) -> identifierText x  -- use first identifier as UUID
                   []    -> error "epubIdentifier is null"  -- shouldn't happen
@@ -553,7 +553,7 @@ writeEPUB opts doc@(Pandoc meta _) = do
                                 [("idref", "cover_xhtml")] $ () ]
               ++ ((unode "itemref" ! [("idref", "title_page_xhtml")
                                      ,("linear",
-                                         case lookupMeta "title" meta of
+                                         case lookupMeta "title" mt of
                                                Just _  -> "yes"
                                                Nothing -> "no")] $ ()) :
                   [unode "itemref" ! [("idref", "nav")] $ ()
@@ -604,7 +604,7 @@ writeEPUB opts doc@(Pandoc meta _) = do
                   ] ++ subs
 
   let tpNode = unode "navPoint" !  [("id", "navPoint-0")] $
-                  [ unode "navLabel" $ unode "text" (stringify $ docTitle' meta)
+                  [ unode "navLabel" $ unode "text" (stringify $ docTitle' mt)
                   , unode "content" ! [("src","title_page.xhtml")] $ () ]
 
   let tocData = UTF8.fromStringLazy $ ppTopElement $
@@ -667,7 +667,7 @@ writeEPUB opts doc@(Pandoc meta _) = do
   let navData = renderHtml $ writeHtml
                       opts'{ writerVariables = ("navpage","true"):vars }
             (Pandoc (setMeta "title"
-                     (walk removeNote $ fromList $ docTitle' meta) nullMeta)
+                     (walk removeNote $ fromList $ docTitle' mt) nullMeta)
                (navBlocks ++ landmarks))
   let navEntry = mkEntry "nav.xhtml" navData
 
@@ -886,7 +886,7 @@ transformInline opts mediaRef  (RawInline fmt raw)
 transformInline _ _ x = return x
 
 (!) :: (t -> Element) -> [(String, String)] -> t -> Element
-(!) f attrs n = add_attrs (map (\(k,v) -> Attr (unqual k) v) attrs) (f n)
+(!) f ats n = add_attrs (map (\(k,v) -> Attr (unqual k) v) ats) (f n)
 
 -- | Version of 'ppTopElement' that specifies UTF-8 encoding.
 ppTopElement :: Element -> String
@@ -1209,7 +1209,7 @@ relatorMap =
            ]
 
 docTitle' :: Meta -> [Inline]
-docTitle' meta = fromMaybe [] $ go <$> lookupMeta "title" meta
+docTitle' mt = fromMaybe [] $ go <$> lookupMeta "title" mt
   where go (MetaString s) = [Str s]
         go (MetaInlines xs) = xs
         go (MetaBlocks [Para xs]) = xs

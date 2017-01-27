@@ -44,7 +44,7 @@ import           Text.Pandoc.Readers.Org.Shared
 
 import qualified Text.Pandoc.Builder as B
 import           Text.Pandoc.Builder ( Inlines, Blocks )
-import           Text.Pandoc.Definition
+import           Text.Pandoc.Definition(Meta, Inline(Str), Attr, Alignment(AlignRight, AlignCenter, AlignLeft, AlignDefault), Block(Header), nullAttr)
 import           Text.Pandoc.Options
 import           Text.Pandoc.Shared ( compactify', compactify'DL, safeRead )
 

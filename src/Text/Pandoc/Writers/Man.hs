@@ -52,12 +52,12 @@ writeMan opts document = evalState (pandocToMan opts document) (WriterState [] F
 
 -- | Return groff man representation of document.
 pandocToMan :: WriterOptions -> Pandoc -> State WriterState String
-pandocToMan opts (Pandoc meta blocks) = do
+pandocToMan opts (Pandoc mt blx) = do
   let colwidth = if writerWrapText opts == WrapAuto
                     then Just $ writerColumns opts
                     else Nothing
   let render' = render colwidth
-  titleText <- inlineListToMan opts $ docTitle meta
+  titleText <- inlineListToMan opts $ docTitle mt
   let title' = render' titleText
   let setFieldsFromTitle =
        case break (== ' ') title' of
@@ -76,8 +76,8 @@ pandocToMan opts (Pandoc meta blocks) = do
   metadata <- metaToJSON opts
               (fmap (render colwidth) . blockListToMan opts)
               (fmap (render colwidth) . inlineListToMan opts)
-              $ deleteMeta "title" meta
-  body <- blockListToMan opts blocks
+              $ deleteMeta "title" mt
+  body <- blockListToMan opts blx
   notes <- liftM stNotes get
   notes' <- notesToMan opts (reverse notes)
   let main = render' $ body $$ notes' $$ text ""
@@ -190,8 +190,8 @@ blockToMan _ (CodeBlock _ str) = return $
   text (escapeCode str) $$
   text "\\f[]" $$
   text ".fi"
-blockToMan opts (BlockQuote blocks) = do
-  contents <- blockListToMan opts blocks
+blockToMan opts (BlockQuote blx) = do
+  contents <- blockListToMan opts blx
   return $ text ".RS" $$ contents $$ text ".RE"
 blockToMan opts (Table caption alignments widths headers rows) =
   let aligncode AlignLeft    = "l"
@@ -280,8 +280,8 @@ definitionListItemToMan opts (label, defs) = do
   labelText <- inlineListToMan opts label
   contents <- if null defs
                  then return empty
-                 else liftM vcat $ forM defs $ \blocks -> do
-                        let (first, rest) = case blocks of
+                 else liftM vcat $ forM defs $ \blx -> do
+                        let (first, rest) = case blx of
                               ((Para x):y) -> (Plain x,y)
                               (x:y)        -> (x,y)
                               []           -> error "blocks is null"
@@ -295,8 +295,8 @@ definitionListItemToMan opts (label, defs) = do
 blockListToMan :: WriterOptions -- ^ Options
                     -> [Block]       -- ^ List of block elements
                     -> State WriterState Doc
-blockListToMan opts blocks =
-  mapM (blockToMan opts) blocks >>= (return . vcat)
+blockListToMan opts blx =
+  mapM (blockToMan opts) blx >>= (return . vcat)
 
 -- | Convert list of Pandoc inline elements to man.
 inlineListToMan :: WriterOptions -> [Inline] -> State WriterState Doc

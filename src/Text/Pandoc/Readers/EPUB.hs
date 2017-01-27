@@ -9,7 +9,7 @@ module Text.Pandoc.Readers.EPUB
   where
 
 import Text.XML.Light
-import Text.Pandoc.Definition hiding (Attr)
+import Text.Pandoc.Definition (Meta, Inline(Link, Image, Code, Span),  Pandoc(Pandoc), Block(CodeBlock, Header, Div), nullMeta)
 import Text.Pandoc.Readers.HTML (readHtml)
 import Text.Pandoc.Error
 import Text.Pandoc.Walk (walk, query)

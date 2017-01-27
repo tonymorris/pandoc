@@ -61,7 +61,7 @@ writeOrg opts document =
 
 -- | Return Org representation of document.
 pandocToOrg :: Pandoc -> State WriterState String
-pandocToOrg (Pandoc meta blocks) = do
+pandocToOrg (Pandoc mt blx) = do
   opts <- liftM stOptions get
   let colwidth = if writerWrapText opts == WrapAuto
                     then Just $ writerColumns opts
@@ -69,8 +69,8 @@ pandocToOrg (Pandoc meta blocks) = do
   metadata <- metaToJSON opts
                (fmap (render colwidth) . blockListToOrg)
                (fmap (render colwidth) . inlineListToOrg)
-               meta
-  body <- blockListToOrg blocks
+               mt
+  body <- blockListToOrg blx
   notes <- liftM (reverse . stNotes) get >>= notesToOrg
   -- note that the notes may contain refs, so we do them first
   hasMath <- liftM stHasMath get
@@ -123,10 +123,10 @@ blockToOrg (Div (_,classes@(cls:_),kvs) bs) | "drawer" `elem` classes = do
            blankline $$ contents $$
            blankline $$ drawerEndTag $$
            blankline
-blockToOrg (Div attrs bs) = do
+blockToOrg (Div ats bs) = do
   contents <- blockListToOrg bs
   let isGreaterBlockClass = (`elem` ["center", "quote"]) . map toLower
-  return $ case attrs of
+  return $ case ats of
     ("", [], []) ->
       -- nullAttr, treat contents as if it wasn't wrapped
       blankline $$ contents $$ blankline
@@ -147,7 +147,7 @@ blockToOrg (Div attrs bs) = do
         _                     ->
           -- fallback: wrap in div tags
           let
-            startTag = tagWithAttrs "div" attrs
+            startTag = tagWithAttrs "div" ats
             endTag = text "</div>"
           in blankline $$ "#+BEGIN_HTML" $$
              nest 2 startTag $$ "#+END_HTML" $$ blankline $$
@@ -197,8 +197,8 @@ blockToOrg (CodeBlock (_,classes,_) str) = do
                       []    -> ("#+BEGIN_EXAMPLE", "#+END_EXAMPLE")
                       (x:_) -> ("#+BEGIN_SRC " ++ x, "#+END_SRC")
   return $ text beg $$ nest tabstop (text str) $$ text end $$ blankline
-blockToOrg (BlockQuote blocks) = do
-  contents <- blockListToOrg blocks
+blockToOrg (BlockQuote blx) = do
+  contents <- blockListToOrg blx
   return $ blankline $$ "#+BEGIN_QUOTE" $$
            nest 2 contents $$ "#+END_QUOTE" $$ blankline
 blockToOrg (Table caption' _ _ headers rows) =  do
@@ -213,12 +213,12 @@ blockToOrg (Table caption' _ _ headers rows) =  do
   let widthsInChars =
        map ((+2) . numChars) $ transpose (headers' : rawRows)
   -- FIXME: Org doesn't allow blocks with height more than 1.
-  let hpipeBlocks blocks = hcat [beg, middle, end]
-        where h      = maximum (1 : map height blocks)
+  let hpipeBlocks blx = hcat [beg, middle, end]
+        where h      = maximum (1 : map height blx)
               sep'   = lblock 3 $ vcat (map text $ replicate h " | ")
               beg    = lblock 2 $ vcat (map text $ replicate h "| ")
               end    = lblock 2 $ vcat (map text $ replicate h " |")
-              middle = hcat $ intersperse sep' blocks
+              middle = hcat $ intersperse sep' blx
   let makeRow = hpipeBlocks . zipWith lblock widthsInChars
   let head' = makeRow headers'
   rows' <- mapM (\row -> do cols <- mapM blockListToOrg row
@@ -303,7 +303,7 @@ attrHtml (ident, classes, kvs) =
 -- | Convert list of Pandoc block elements to Org.
 blockListToOrg :: [Block]       -- ^ List of block elements
                -> State WriterState Doc
-blockListToOrg blocks = mapM blockToOrg blocks >>= return . vcat
+blockListToOrg blx = mapM blockToOrg blx >>= return . vcat
 
 -- | Convert list of Pandoc inline elements to Org.
 inlineListToOrg :: [Inline] -> State WriterState Doc

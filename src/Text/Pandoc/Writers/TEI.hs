@@ -54,8 +54,8 @@ authorToTEI opts name' =
 
 -- | Convert Pandoc document to string in Docbook format.
 writeTEI :: WriterOptions -> Pandoc -> String
-writeTEI opts (Pandoc meta blocks) =
-  let elements = hierarchicalize blocks
+writeTEI opts (Pandoc mt blx) =
+  let elements = hierarchicalize blx
       colwidth = if writerWrapText opts == WrapAuto
                     then Just $ writerColumns opts
                     else Nothing
@@ -65,8 +65,8 @@ writeTEI opts (Pandoc meta blocks) =
                    TopLevelChapter -> 0
                    TopLevelSection -> 1
                    TopLevelDefault -> 1
-      auths'   = map (authorToTEI opts) $ docAuthors meta
-      meta'    = B.setMeta "author" auths' meta
+      auths'   = map (authorToTEI opts) $ docAuthors mt
+      meta'    = B.setMeta "author" auths' mt
       Just metadata = metaToJSON opts
                  (Just . render colwidth . (vcat .
                           (map (elementToTEI opts startLvl)) . hierarchicalize))
@@ -84,7 +84,7 @@ writeTEI opts (Pandoc meta blocks) =
 
 -- | Convert an Element to TEI.
 elementToTEI :: WriterOptions -> Int -> Element -> Doc
-elementToTEI opts _   (Blk block) = blockToTEI opts block
+elementToTEI opts _   (Blk blk) = blockToTEI opts blk
 elementToTEI opts lvl (Sec _ _num (id',_,_) title elements) =
   -- TEI doesn't allow sections with no content, so insert some if needed
   let elements' = if null elements
@@ -171,8 +171,8 @@ blockToTEI opts (Para lst) =
   inTags False "p" [] $ inlinesToTEI opts lst
 blockToTEI opts (LineBlock lns) =
   blockToTEI opts $ linesToPara lns
-blockToTEI opts (BlockQuote blocks) =
-  inTagsIndented "quote" $ blocksToTEI opts blocks
+blockToTEI opts (BlockQuote blx) =
+  inTagsIndented "quote" $ blocksToTEI opts blx
 blockToTEI _ (CodeBlock (_,classes,_) str) =
   text ("<ab type='codeblock " ++ lang ++ "'>") <> cr <>
      flush (text (escapeStringForXML str) <> cr <> text "</ab>")

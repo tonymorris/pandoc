@@ -86,12 +86,12 @@ runDokuWiki = flip evalState def . flip runReaderT def
 
 -- | Return DokuWiki representation of document.
 pandocToDokuWiki :: WriterOptions -> Pandoc -> DokuWiki String
-pandocToDokuWiki opts (Pandoc meta blocks) = do
+pandocToDokuWiki opts (Pandoc mt blx) = do
   metadata <- metaToJSON opts
               (fmap trimr . blockListToDokuWiki opts)
               (inlineListToDokuWiki opts)
-              meta
-  body <- blockListToDokuWiki opts blocks
+              mt
+  body <- blockListToDokuWiki opts blx
   notesExist <- stNotes <$> get
   let notes = if notesExist
                  then "" -- TODO Was "\n<references />" Check whether I can really remove this:
@@ -180,9 +180,9 @@ blockToDokuWiki _ (CodeBlock (_,classes,_) str) = do
                       [] -> ">\n"
                       (x:_) -> " " ++ x ++ ">\n") ++ str ++ "\n</code>"
 
-blockToDokuWiki opts (BlockQuote blocks) = do
-  contents <- blockListToDokuWiki opts blocks
-  if isSimpleBlockQuote blocks
+blockToDokuWiki opts (BlockQuote blx) = do
+  contents <- blockListToDokuWiki opts blx
+  if isSimpleBlockQuote blx
      then return $ unlines $ map ("> " ++) $ lines contents
      else return $ "<HTML><blockquote>\n" ++ contents ++ "</blockquote></HTML>"
 
@@ -391,11 +391,11 @@ tableItemToDokuWiki opts align' item = do
 blockListToDokuWiki :: WriterOptions -- ^ Options
                     -> [Block]       -- ^ List of block elements
                     -> DokuWiki String
-blockListToDokuWiki opts blocks = do
+blockListToDokuWiki opts blx = do
   backSlash <- stBackSlashLB <$> ask
   if backSlash
-    then (backSlashLineBreaks . vcat) <$> mapM (blockToDokuWiki opts) blocks
-    else vcat <$> mapM (blockToDokuWiki opts) blocks
+    then (backSlashLineBreaks . vcat) <$> mapM (blockToDokuWiki opts) blx
+    else vcat <$> mapM (blockToDokuWiki opts) blx
 
 -- | Convert list of Pandoc inline elements to DokuWiki.
 inlineListToDokuWiki :: WriterOptions -> [Inline] -> DokuWiki String
@@ -454,9 +454,9 @@ inlineToDokuWiki _ (Code _ str) =
 
 inlineToDokuWiki _ (Str str) = return $ escapeString str
 
-inlineToDokuWiki _ (Math mathType str) = return $ delim ++ str ++ delim
+inlineToDokuWiki _ (Math mathTp str) = return $ delim ++ str ++ delim
                                  -- note:  str should NOT be escaped
-  where delim = case mathType of
+  where delim = case mathTp of
                      DisplayMath -> "$$"
                      InlineMath  -> "$"
 

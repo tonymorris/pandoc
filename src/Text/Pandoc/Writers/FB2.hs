@@ -76,11 +76,11 @@ instance Show ImageMode where
 writeFB2 :: WriterOptions    -- ^ conversion options
          -> Pandoc           -- ^ document to convert
          -> IO String        -- ^ FictionBook2 document (not encoded yet)
-writeFB2 opts (Pandoc meta blocks) = flip evalStateT newFB $ do
+writeFB2 opts (Pandoc mt blx) = flip evalStateT newFB $ do
      modify (\s -> s { writerOptions = opts })
-     desc <- description meta
-     fp <- frontpage meta
-     secs <- renderSections 1 blocks
+     desc <- description mt
+     fp <- frontpage mt
+     secs <- renderSections 1 blx
      let body = el "body" $ fp ++ secs
      notes <- renderFootnotes
      (imgs,missing) <- liftM imagesToFetch get >>= \s -> liftIO (fetchImages s)
@@ -145,8 +145,8 @@ writeFB2 opts (Pandoc meta blocks) = flip evalStateT newFB $ do
 -- | Divide the stream of blocks into sections and convert to XML
 -- representation.
 renderSections :: Int -> [Block] -> FBM [Content]
-renderSections level blocks = do
-    let secs = splitSections level blocks
+renderSections level blx = do
+    let secs = splitSections level blx
     mapM (renderSection level) secs
 
 renderSection :: Int -> ([Inline], [Block]) -> FBM Content
@@ -179,7 +179,7 @@ isLineBreak _ = False
 
 -- | Divide the stream of block elements into sections: [(title, blocks)].
 splitSections :: Int -> [Block] -> [([Inline], [Block])]
-splitSections level blocks = reverse $ revSplit (reverse blocks)
+splitSections level blx = reverse $ revSplit (reverse blx)
   where
   revSplit [] = []
   revSplit rblocks =
@@ -258,9 +258,9 @@ readDataURI uri =
   case stripPrefix "data:" uri of
     Nothing   -> Nothing
     Just rest ->
-      let meta = takeWhile (/= ',') rest  -- without trailing ','
-          uridata = drop (length meta + 1) rest
-          parts = split (== ';') meta
+      let mt = takeWhile (/= ',') rest  -- without trailing ','
+          uridata = drop (length mt + 1) rest
+          parts = split (== ';') mt
           (mime,cs,enc)=foldr upd ("text/plain","US-ASCII",False) parts
       in  Just (mime,cs,enc,uridata)
 
@@ -355,11 +355,11 @@ blockToXml (DefinitionList defs) =
           def' <- cMapM (cMapM blockToXml . sep . paraToPlain . map indent) bss
           t <- wrap "strong" term
           return [ el "p" t, el "p" def' ]
-      sep blocks =
-          if all needsBreak blocks then
-              blocks ++ [Plain [LineBreak]]
+      sep blx =
+          if all needsBreak blx then
+              blx ++ [Plain [LineBreak]]
           else
-              blocks
+              blx
       needsBreak (Para _) = False
       needsBreak (Plain ins) = LineBreak `notElem` ins
       needsBreak _ = True
@@ -531,9 +531,9 @@ replaceImagesWithAlt missingHrefs body =
   --
     replaceNode :: Content -> Content
     replaceNode n@(Elem img@(Element _ _ _ _)) =
-        let attrs = elAttribs img
-            alt = getAttrVal attrs (uname "alt")
-            imtype = getAttrVal attrs (qname "l" "type")
+        let ats = elAttribs img
+            alt = getAttrVal ats (uname "alt")
+            imtype = getAttrVal ats (qname "l" "type")
         in case (alt, imtype) of
              (Just alt', Just imtype') ->
                  if imtype' == show NormalImage
@@ -544,8 +544,8 @@ replaceImagesWithAlt missingHrefs body =
     replaceNode n = n
   --
     getAttrVal :: [X.Attr] -> QName -> Maybe String
-    getAttrVal attrs name =
-        case filter ((name ==) . attrKey) attrs of
+    getAttrVal ats name =
+        case filter ((name ==) . attrKey) ats of
            (a:_) -> Just (attrVal a)
            _     -> Nothing
 

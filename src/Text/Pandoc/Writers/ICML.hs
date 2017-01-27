@@ -124,7 +124,7 @@ citeName          = "Cite"
 
 -- | Convert Pandoc document to string in ICML format.
 writeICML :: WriterOptions -> Pandoc -> IO String
-writeICML opts (Pandoc meta blocks) = do
+writeICML opts (Pandoc mt blx) = do
   let colwidth = if writerWrapText opts == WrapAuto
                     then Just $ writerColumns opts
                     else Nothing
@@ -133,8 +133,8 @@ writeICML opts (Pandoc meta blocks) = do
   metadata <- metaToJSON opts
              (renderMeta blocksToICML)
              (renderMeta inlinesToICML)
-             meta
-  (doc, st) <- runStateT (blocksToICML opts [] blocks) defaultWriterState
+             mt
+  (doc, st) <- runStateT (blocksToICML opts [] blx) defaultWriterState
   let main    = render' doc
       context = defField "body" main
               $ defField "charStyles" (render' $ charStylesToDoc st)
@@ -174,7 +174,7 @@ parStylesToDoc st = vcat $ map makeStyle $ Set.toAscList $ blockStyles st
   where
     makeStyle s =
       let countSubStrs sub str = length $ Text.breakOnAll (Text.pack sub) (Text.pack str)
-          attrs = concat $ map (contains s) $ [
+          ats = concat $ map (contains s) $ [
                                (defListTermName, ("BulletsAndNumberingListType", "BulletList"))
                              , (defListTermName, ("FontStyle", "Bold"))
                              , (tableHeaderName, ("FontStyle", "Bold"))
@@ -196,7 +196,7 @@ parStylesToDoc st = vcat $ map makeStyle $ Set.toAscList $ blockStyles st
                               | otherwise = findList xs
           nBuls = countSubStrs bulletListName s
           nOrds = countSubStrs orderedListName s
-          attrs' = numbering ++ listType ++ indent ++ attrs
+          attrs' = numbering ++ listType ++ indent ++ ats
             where
               numbering | isOrderedList = [("NumberingExpression", "^#.^t"), ("NumberingLevel", show nOrds)]
                         | otherwise     = []
@@ -239,16 +239,16 @@ charStylesToDoc :: WriterState -> Doc
 charStylesToDoc st = vcat $ map makeStyle $ Set.toAscList $ inlineStyles st
   where
     makeStyle s =
-      let attrs = concat $ map (contains s) [
+      let ats = concat $ map (contains s) [
                                (strikeoutName,   ("StrikeThru", "true"))
                              , (superscriptName, ("Position", "Superscript"))
                              , (subscriptName,   ("Position", "Subscript"))
                              , (smallCapsName,   ("Capitalization", "SmallCaps"))
                              ]
-          attrs' | isInfixOf emphName s && isInfixOf strongName s = ("FontStyle", "Bold Italic") : attrs
-                 | isInfixOf strongName s                         = ("FontStyle", "Bold") : attrs
-                 | isInfixOf emphName s                           = ("FontStyle", "Italic") : attrs
-                 | otherwise                                      = attrs
+          attrs' | isInfixOf emphName s && isInfixOf strongName s = ("FontStyle", "Bold Italic") : ats
+                 | isInfixOf strongName s                         = ("FontStyle", "Bold") : ats
+                 | isInfixOf emphName s                           = ("FontStyle", "Italic") : ats
+                 | otherwise                                      = ats
           props = inTags True "Properties" [] $
                     inTags False "BasedOn" [("type", "object")] (text "$ID/NormalCharacterStyle") $$ font
                   where
@@ -303,7 +303,7 @@ blockToICML opts style (CodeBlock _ str) = parStyle opts (codeBlockName:style) $
 blockToICML _ _ (RawBlock f str)
   | f == Format "icml" = return $ text str
   | otherwise          = return empty
-blockToICML opts style (BlockQuote blocks) = blocksToICML opts (blockQuoteName:style) blocks
+blockToICML opts style (BlockQuote blx) = blocksToICML opts (blockQuoteName:style) blx
 blockToICML opts style (OrderedList attribs lst) = listItemsToICML opts orderedListName style (Just attribs) lst
 blockToICML opts style (BulletList lst) = listItemsToICML opts bulletListName style Nothing lst
 blockToICML opts style (DefinitionList lst) = intersperseBrs `fmap` mapM (definitionListItemToICML opts style) lst
@@ -395,7 +395,7 @@ listItemToICML opts style isFirst attribs item =
   in  if length item > 1
          then do
            let insertTab (Para lst) = blockToICML opts (subListParName:style) $ Para $ (Str "\t"):lst
-               insertTab block      = blockToICML opts style block
+               insertTab blk      = blockToICML opts style blk
            f <- blockToICML opts stl' $ head item
            r <- mapM insertTab $ tail item
            return $ intersperseBrs (f : r)
@@ -455,7 +455,7 @@ inlineToICML opts style (Span _ lst) = inlinesToICML opts style lst
 footnoteToICML :: WriterOptions -> Style -> [Block] -> WS Doc
 footnoteToICML opts style lst =
   let insertTab (Para ls) = blockToICML opts (footnoteName:style) $ Para $ (Str "\t"):ls
-      insertTab block     = blockToICML opts (footnoteName:style) block
+      insertTab blk     = blockToICML opts (footnoteName:style) blk
   in  do
     contents <- mapM insertTab lst
     let number = inTags True "ParagraphStyleRange" [] $
@@ -492,15 +492,15 @@ parStyle opts style lst =
       stl    = if null stlStr
                   then ""
                   else "ParagraphStyle/" ++ stlStr
-      attrs  = ("AppliedParagraphStyle", stl)
+      ats  = ("AppliedParagraphStyle", stl)
       attrs' =  if firstListItemName `elem` style
-                   then let ats = attrs : [("NumberingContinue", "false")]
+                   then let as = ats : [("NumberingContinue", "false")]
                             begins = filter (isPrefixOf beginsWithName) style
                         in  if null begins
-                               then ats
+                               then as
                                else let i = maybe "" id $ stripPrefix beginsWithName $ head begins
-                                    in  ("NumberingStartAt", i) : ats
-                   else [attrs]
+                                    in  ("NumberingStartAt", i) : as
+                   else [ats]
   in  do
       content <- inlinesToICML opts [] lst
       let cont = inTags True "ParagraphStyleRange" attrs' content
@@ -509,8 +509,8 @@ parStyle opts style lst =
 -- | Wrap a Doc in an ICML Character Style.
 charStyle :: Style -> Doc -> WS Doc
 charStyle style content =
-  let (stlStr, attrs) = styleToStrAttr style
-      doc = inTags True "CharacterStyleRange" attrs $ inTagsSimple "Content" $ flush content
+  let (stlStr, ats) = styleToStrAttr style
+      doc = inTags True "CharacterStyleRange" ats $ inTagsSimple "Content" $ flush content
   in  do
       state $ \st ->
         let styles = if null stlStr
@@ -525,8 +525,8 @@ styleToStrAttr style =
       stl    = if null style
                   then "$ID/NormalCharacterStyle"
                   else "CharacterStyle/" ++ stlStr
-      attrs = [("AppliedCharacterStyle", stl)]
-  in  (stlStr, attrs)
+      ats = [("AppliedCharacterStyle", stl)]
+  in  (stlStr, ats)
 
 -- | Assemble an ICML Image.
 imageICML :: WriterOptions -> Style -> Attr -> Target -> WS Doc
@@ -549,7 +549,7 @@ imageICML opts style attr (src, _) = do
       hh = showFl $ oh / 2
       scale = showFl (imgWidth / ow) ++ " 0 0 " ++ showFl (imgHeight / oh)
       src' = if isURI src then src else "file:" ++ src
-      (stlStr, attrs) = styleToStrAttr style
+      (stlStr, ats) = styleToStrAttr style
       props  = inTags True "Properties" [] $ inTags True "PathGeometry" []
                  $ inTags True "GeometryPathType" [("PathOpen","false")]
                  $ inTags True "PathPointArray" []
@@ -569,7 +569,7 @@ imageICML opts style attr (src, _) = do
                      inTags True "Properties" [] $ inTags True "Profile" [("type","string")] $ text "$ID/Embedded"
                    , selfClosingTag "Link" [("Self", "ueb"), ("LinkResourceURI", src')]
                    ]
-      doc    = inTags True "CharacterStyleRange" attrs
+      doc    = inTags True "CharacterStyleRange" ats
                  $ inTags True "Rectangle" [("Self","uec"), ("StrokeWeight", "0"),
                      ("ItemTransform", scale++" "++hw++" -"++hh)]
                  $ (props $$ image)

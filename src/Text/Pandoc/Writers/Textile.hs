@@ -58,10 +58,10 @@ writeTextile opts document =
 
 -- | Return Textile representation of document.
 pandocToTextile :: WriterOptions -> Pandoc -> State WriterState String
-pandocToTextile opts (Pandoc meta blocks) = do
+pandocToTextile opts (Pandoc mt blx) = do
   metadata <- metaToJSON opts (blockListToTextile opts)
-                 (inlineListToTextile opts) meta
-  body <- blockListToTextile opts blocks
+                 (inlineListToTextile opts) mt
+  body <- blockListToTextile opts blx
   notes <- liftM (unlines . reverse . stNotes) get
   let main = body ++ if null notes then "" else ("\n\n" ++ notes)
   let context = defField "body" main metadata
@@ -167,8 +167,8 @@ blockToTextile opts (BlockQuote bs@[Para _]) = do
   contents <- blockListToTextile opts bs
   return $ "bq. " ++ contents ++ "\n\n"
 
-blockToTextile opts (BlockQuote blocks) = do
-  contents <- blockListToTextile opts blocks
+blockToTextile opts (BlockQuote blx) = do
+  contents <- blockListToTextile opts blx
   return $ "<blockquote>\n\n" ++ contents ++ "\n</blockquote>\n"
 
 blockToTextile opts (Table [] aligns widths headers rows') |
@@ -363,8 +363,8 @@ tableItemToTextile opts celltype align' item = do
 blockListToTextile :: WriterOptions -- ^ Options
                     -> [Block]       -- ^ List of block elements
                     -> State WriterState String
-blockListToTextile opts blocks =
-  mapM (blockToTextile opts) blocks >>= return . vcat
+blockListToTextile opts blx =
+  mapM (blockToTextile opts) blx >>= return . vcat
 
 -- | Convert list of Pandoc inline elements to Textile.
 inlineListToTextile :: WriterOptions -> [Inline] -> State WriterState String

@@ -41,7 +41,7 @@ import           Text.Pandoc.Readers.Org.Parsing
 
 import qualified Text.Pandoc.Builder as B
 import           Text.Pandoc.Builder ( Blocks, Inlines )
-import           Text.Pandoc.Definition
+import           Text.Pandoc.Definition(MetaValue(MetaList, MetaInlines, MetaString), Meta(Meta, unMeta), lookupMeta, nullMeta)
 
 import           Control.Monad ( mzero, void )
 import           Data.Char ( toLower )

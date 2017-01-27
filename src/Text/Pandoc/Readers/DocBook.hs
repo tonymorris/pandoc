@@ -9,6 +9,7 @@ import Text.HTML.TagSoup.Entity (lookupEntity)
 import Data.Either (rights)
 import Data.Generics
 import Data.Char (isSpace)
+import Control.Lens(lens)
 import Control.Monad.State
 import Data.List (intersperse)
 import Data.Maybe (fromMaybe)
@@ -524,7 +525,7 @@ instance Default DBState where
 
 
 readDocBook :: ReaderOptions -> String -> Either PandocError Pandoc
-readDocBook _ inp  = (\blocks -> Pandoc (dbMeta st') (toList . mconcat $ blocks)) <$>  bs
+readDocBook _ inp  = (\blx -> Pandoc (dbMeta st') (toList . mconcat $ blx)) <$>  bs
   where (bs , st') = flip runState (def{ dbContent = tree }) . runExceptT . mapM parseBlock $ tree
         tree = normalizeTree . parseXML . handleInstructions $ inp
 
@@ -596,9 +597,11 @@ addMeta :: ToMetaValue a => String -> a -> DB ()
 addMeta field val = modify (setMeta field val)
 
 instance HasMeta DBState where
-  setMeta field v s =  s {dbMeta = setMeta field v (dbMeta s)}
-  deleteMeta field s = s {dbMeta = deleteMeta field (dbMeta s)}
-
+  meta =
+    lens
+      (\(DBState _ _ m _ _ _ _) -> m)
+      (\(DBState l q _ a b t c) m -> DBState l q m a b t c)
+  
 isBlockElement :: Content -> Bool
 isBlockElement (Elem e) = qName (elName e) `elem` blocktags
   where blocktags = ["toc","index","para","formalpara","simpara",

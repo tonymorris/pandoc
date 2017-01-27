@@ -65,13 +65,13 @@ writeMediaWiki opts document =
 
 -- | Return MediaWiki representation of document.
 pandocToMediaWiki :: Pandoc -> MediaWikiWriter String
-pandocToMediaWiki (Pandoc meta blocks) = do
+pandocToMediaWiki (Pandoc mt blx) = do
   opts <- asks options
   metadata <- metaToJSON opts
               (fmap trimr . blockListToMediaWiki)
               inlineListToMediaWiki
-              meta
-  body <- blockListToMediaWiki blocks
+              mt
+  body <- blockListToMediaWiki blx
   notesExist <- gets stNotes
   let notes = if notesExist
                  then "\n<references />"
@@ -93,9 +93,9 @@ blockToMediaWiki :: Block         -- ^ Block element
 
 blockToMediaWiki Null = return ""
 
-blockToMediaWiki (Div attrs bs) = do
+blockToMediaWiki (Div ats bs) = do
   contents <- blockListToMediaWiki bs
-  return $ render Nothing (tagWithAttrs "div" attrs) ++ "\n\n" ++
+  return $ render Nothing (tagWithAttrs "div" ats) ++ "\n\n" ++
                      contents ++ "\n\n" ++ "</div>"
 
 blockToMediaWiki (Plain inlines) =
@@ -154,8 +154,8 @@ blockToMediaWiki (CodeBlock (_,classes,_) str) = do
        else "<source lang=\"" ++ head at ++ "\">" ++ str ++ "</source>"
             -- note:  no escape!
 
-blockToMediaWiki (BlockQuote blocks) = do
-  contents <- blockListToMediaWiki blocks
+blockToMediaWiki (BlockQuote blx) = do
+  contents <- blockListToMediaWiki blx
   return $ "<blockquote>" ++ contents ++ "</blockquote>"
 
 blockToMediaWiki (Table capt aligns widths headers rows') = do
@@ -302,13 +302,13 @@ tableCellToMediaWiki headless rownum (alignment, width, bs) = do
   contents <- blockListToMediaWiki bs
   let marker = if rownum == 1 && not headless then "!" else "|"
   let percent w = show (truncate (100*w) :: Integer) ++ "%"
-  let attrs = ["align=" ++ show (alignmentToString alignment) |
-                 alignment /= AlignDefault && alignment /= AlignLeft] ++
-              ["width=\"" ++ percent width ++ "\"" |
-                 width /= 0.0 && rownum == 1]
-  let attr = if null attrs
+  let ats = ["align=" ++ show (alignmentToString alignment) |
+               alignment /= AlignDefault && alignment /= AlignLeft] ++
+            ["width=\"" ++ percent width ++ "\"" |
+               width /= 0.0 && rownum == 1]
+  let attr = if null ats
                 then ""
-                else unwords attrs ++ "|"
+                else unwords ats ++ "|"
   let sep = case bs of
                  [Plain _] -> " "
                  [Para  _] -> " "
@@ -342,8 +342,8 @@ imageToMediaWiki attr = do
 -- | Convert list of Pandoc block elements to MediaWiki.
 blockListToMediaWiki :: [Block]       -- ^ List of block elements
                      -> MediaWikiWriter String
-blockListToMediaWiki blocks =
-  fmap vcat $ mapM blockToMediaWiki blocks
+blockListToMediaWiki blx =
+  fmap vcat $ mapM blockToMediaWiki blx
 
 -- | Convert list of Pandoc inline elements to MediaWiki.
 inlineListToMediaWiki :: [Inline] -> MediaWikiWriter String
@@ -353,9 +353,9 @@ inlineListToMediaWiki lst =
 -- | Convert Pandoc inline element to MediaWiki.
 inlineToMediaWiki :: Inline -> MediaWikiWriter String
 
-inlineToMediaWiki (Span attrs ils) = do
+inlineToMediaWiki (Span ats ils) = do
   contents <- inlineListToMediaWiki ils
-  return $ render Nothing (tagWithAttrs "span" attrs) ++ contents ++ "</span>"
+  return $ render Nothing (tagWithAttrs "span" ats) ++ contents ++ "</span>"
 
 inlineToMediaWiki (Emph lst) = do
   contents <- inlineListToMediaWiki lst

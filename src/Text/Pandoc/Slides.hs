@@ -55,8 +55,8 @@ prepSlides slideLevel = ensureStartWithH . splitHrule . extractRefsHeader
         splitHrule []                    = []
         extractRefsHeader bs             =
           case reverse bs of
-               (Div ("",["references"],[]) (Header n attrs xs : ys) : zs)
-                 -> reverse zs ++ (Header n attrs xs : [Div ("",["references"],[]) ys])
+               (Div ("",["references"],[]) (Header n ats xs : ys) : zs)
+                 -> reverse zs ++ (Header n ats xs : [Div ("",["references"],[]) ys])
                _ -> bs
         ensureStartWithH bs@(Header n _ _:_)
                        | n <= slideLevel = bs

@@ -106,8 +106,8 @@ readDocxWithWarnings :: ReaderOptions
 readDocxWithWarnings opts bytes
   | Right archive <- toArchiveOrFail bytes
   , Right (docx, parserWarnings) <- archiveToDocxWithWarnings archive = do
-      (meta, blks, mediaBag, warnings) <- docxToOutput opts docx
-      return (Pandoc meta blks, mediaBag, parserWarnings ++ warnings)
+      (mt, blks, mediaBag, warnings) <- docxToOutput opts docx
+      return (Pandoc mt blks, mediaBag, parserWarnings ++ warnings)
 readDocxWithWarnings _ _ =
   Left (ParseFailure "couldn't parse docx file")
 
@@ -611,12 +611,12 @@ rewriteLinks = mapM (walkM rewriteLink')
 bodyToOutput :: Body -> DocxContext (Meta, [Block], MediaBag, [String])
 bodyToOutput (Body bps) = do
   let (metabps, blkbps) = sepBodyParts bps
-  meta <- bodyPartsToMeta metabps
+  mt   <- bodyPartsToMeta metabps
   blks <- smushBlocks <$> mapM bodyPartToBlocks blkbps
   blks' <- rewriteLinks $ blocksToDefinitions $ blocksToBullets $ toList blks
   mediaBag <- gets docxMediaBag
   warnings <- gets docxWarnings
-  return $ (meta,
+  return $ (mt,
             blks',
             mediaBag,
             warnings)

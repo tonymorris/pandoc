@@ -33,7 +33,7 @@ module Text.Pandoc.Readers.RST (
                                 readRST,
                                 readRSTWithWarnings
                                ) where
-import Text.Pandoc.Definition
+import Text.Pandoc.Definition (Meta(Meta), Inline(Link, Image, Str), Attr, Alignment(AlignDefault), ListNumberDelim, ListNumberStyle, Pandoc(Pandoc), MetaValue(MetaBlocks, MetaInlines, MetaList), Block(Para, Plain, Table, DefinitionList, OrderedList, BulletList, Header, Null), nullAttr)
 import Text.Pandoc.Builder (setMeta, fromList)
 import Text.Pandoc.Shared
 import Text.Pandoc.Parsing

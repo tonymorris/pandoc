@@ -42,7 +42,7 @@ import           Text.Pandoc.Readers.Org.Shared
 
 import qualified Text.Pandoc.Builder as B
 import           Text.Pandoc.Builder ( Inlines )
-import           Text.Pandoc.Definition
+import           Text.Pandoc.Definition(Citation(Citation, _citationId, _citationPrefix, _citationSuffix, _citationMode, _citationNoteNum, _citationHash), Inline(RawInline), CitationMode(NormalCitation, SuppressAuthor, AuthorInText))
 import           Text.Pandoc.Options
 import           Text.Pandoc.Readers.LaTeX ( inlineCommand, rawLaTeXInline )
 import           Text.TeXMath ( readTeX, writePandoc, DisplayType(..) )
@@ -203,12 +203,12 @@ normalOrgRefCite = try $ do
       orgRefCiteItem = try $ do
         key <- orgRefCiteKey
         returnF $ Citation
-          { citationId      = key
-          , citationPrefix  = mempty
-          , citationSuffix  = mempty
-          , citationMode    = mode
-          , citationNoteNum = 0
-          , citationHash    = 0
+          { _citationId      = key
+          , _citationPrefix  = mempty
+          , _citationSuffix  = mempty
+          , _citationMode    = mode
+          , _citationNoteNum = 0
+          , _citationHash    = 0
           }
   firstCitation <- orgRefCiteItem
   moreCitations <- many (try $ char ',' *> orgRefCiteItem)
@@ -243,7 +243,7 @@ berkeleyCite = try $ do
    toListOfCites = mconcat . intersperse ", " . map (\c -> B.cite [c] mempty)
 
    toInTextMode :: Citation -> Citation
-   toInTextMode c = c { citationMode = AuthorInText }
+   toInTextMode c = c { _citationMode = AuthorInText }
 
    alterFirst, alterLast :: (a -> a) -> [a] -> [a]
    alterFirst _ []     = []
@@ -251,8 +251,8 @@ berkeleyCite = try $ do
    alterLast  f = reverse . alterFirst f . reverse
 
    prependPrefix, appendSuffix :: Inlines -> Citation -> Citation
-   prependPrefix pre c = c { citationPrefix = B.toList pre <> citationPrefix c }
-   appendSuffix  suf c = c { citationSuffix = citationSuffix c <> B.toList suf }
+   prependPrefix pre c = c { _citationPrefix = B.toList pre <> _citationPrefix c }
+   appendSuffix  suf c = c { _citationSuffix = _citationSuffix c <> B.toList suf }
 
 data BerkeleyCitationList = BerkeleyCitationList
   { berkeleyCiteParens :: Bool
@@ -294,12 +294,12 @@ berkeleyTextualCite :: OrgParser (F [Citation])
 berkeleyTextualCite = try $ do
   (suppressAuthor, key) <- citeKey
   returnF . return $ Citation
-    { citationId      = key
-    , citationPrefix  = mempty
-    , citationSuffix  = mempty
-    , citationMode    = if suppressAuthor then SuppressAuthor else AuthorInText
-    , citationNoteNum = 0
-    , citationHash    = 0
+    { _citationId      = key
+    , _citationPrefix  = mempty
+    , _citationSuffix  = mempty
+    , _citationMode    = if suppressAuthor then SuppressAuthor else AuthorInText
+    , _citationNoteNum = 0
+    , _citationHash    = 0
     }
 
 -- The following is what a Berkeley-style bracketed textual citation parser
@@ -325,12 +325,12 @@ linkLikeOrgRefCite = try $ do
     pre' <- pre
     suf' <- suf
     return Citation
-      { citationId      = key
-      , citationPrefix  = B.toList pre'
-      , citationSuffix  = B.toList (if spc then B.space <> suf' else suf')
-      , citationMode    = mode
-      , citationNoteNum = 0
-      , citationHash    = 0
+      { _citationId      = key
+      , _citationPrefix  = B.toList pre'
+      , _citationSuffix  = B.toList (if spc then B.space <> suf' else suf')
+      , _citationMode    = mode
+      , _citationNoteNum = 0
+      , _citationHash    = 0
       }
 
 -- | Read a citation key.  The characters allowed in citation keys are taken
@@ -363,14 +363,14 @@ citation = try $ do
   return $ do
     x <- pref
     y <- suff
-    return $ Citation{ citationId      = key
-                     , citationPrefix  = B.toList x
-                     , citationSuffix  = B.toList y
-                     , citationMode    = if suppress_author
-                                            then SuppressAuthor
-                                            else NormalCitation
-                     , citationNoteNum = 0
-                     , citationHash    = 0
+    return $ Citation{ _citationId      = key
+                     , _citationPrefix  = B.toList x
+                     , _citationSuffix  = B.toList y
+                     , _citationMode    = if suppress_author
+                                             then SuppressAuthor
+                                             else NormalCitation
+                     , _citationNoteNum = 0
+                     , _citationHash    = 0
                      }
  where
    prefix = trimInlinesF . mconcat <$>

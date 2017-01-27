@@ -98,8 +98,8 @@ addParaStyle :: Doc -> State WriterState ()
 addParaStyle i = modify $ \s -> s { stParaStyles = i : stParaStyles s }
 
 addTextStyle :: Set.Set TextStyle -> (String, Doc) -> State WriterState ()
-addTextStyle attrs i = modify $ \s ->
-  s { stTextStyles = Map.insert attrs i (stTextStyles s) }
+addTextStyle ats i = modify $ \s ->
+  s { stTextStyles = Map.insert ats i (stTextStyles s) }
 
 addTextStyleAttr :: TextStyle -> State WriterState ()
 addTextStyleAttr t = modify $ \s ->
@@ -190,7 +190,7 @@ handleSpaces s
 
 -- | Convert Pandoc document to string in OpenDocument format.
 writeOpenDocument :: WriterOptions -> Pandoc -> String
-writeOpenDocument opts (Pandoc meta blocks) =
+writeOpenDocument opts (Pandoc mt blx) =
   let colwidth = if writerWrapText opts == WrapAuto
                     then Just $ writerColumns opts
                     else Nothing
@@ -200,8 +200,8 @@ writeOpenDocument opts (Pandoc meta blocks) =
            m <- metaToJSON opts
                   (fmap (render colwidth) . blocksToOpenDocument opts)
                   (fmap (render colwidth) . inlinesToOpenDocument opts)
-                  meta
-           b <- render' `fmap` blocksToOpenDocument opts blocks
+                  mt
+           b <- render' `fmap` blocksToOpenDocument opts blx
            return (b, m)
       styles   = stTableStyles s ++ stParaStyles s ++
                      map snd (reverse $ sortBy (comparing fst) $
@@ -292,7 +292,7 @@ inBlockQuote  o i (b:bs)
                              go =<< inBlockQuote o ni (map plainToPara l)
     | Para       l <- b = do go =<< inParagraphTagsWithStyle ("P" ++ show  i) <$> inlinesToOpenDocument o l
     | otherwise         = do go =<< blockToOpenDocument o b
-    where go  block  = ($$) block <$> inBlockQuote o i bs
+    where go  blk  = ($$) blk <$> inBlockQuote o i bs
 inBlockQuote     _ _ [] =  resetIndent >> return empty
 
 -- | Convert a list of Pandoc blocks to OpenDocument.
@@ -539,7 +539,7 @@ tableStyle num wcs =
     in  table $$ vcat columnStyles $$ cellStyle
 
 paraStyle :: [(String,String)] -> State WriterState Int
-paraStyle attrs = do
+paraStyle ats = do
   pn <- (+)   1 . length       <$> gets stParaStyles
   i  <- (*) 0.5 . fromIntegral <$> gets stIndentPara :: State WriterState Double
   b  <- gets stInDefinition
@@ -559,7 +559,7 @@ paraStyle attrs = do
       attributes = indent ++ tight
       paraProps = when (not $ null attributes) $
                     selfClosingTag "style:paragraph-properties" attributes
-  addParaStyle $ inTags True "style:style" (styleAttr ++ attrs) paraProps
+  addParaStyle $ inTags True "style:style" (styleAttr ++ ats) paraProps
   return pn
 
 paraListStyle :: Int -> State WriterState Int

@@ -33,7 +33,7 @@ module Text.Pandoc.Readers.TWiki ( readTWiki
                                  , readTWikiWithWarnings
                                  ) where
 
-import Text.Pandoc.Definition
+import Text.Pandoc.Definition (Inline(Space), Attr, Alignment(AlignRight, AlignCenter, AlignLeft, AlignDefault), ListNumberDelim(DefaultDelim), ListNumberStyle(DefaultStyle, UpperRoman, UpperAlpha, LowerAlpha, LowerRoman), Pandoc)
 import qualified Text.Pandoc.Builder as B
 import Text.Pandoc.Options
 import Text.Pandoc.Parsing hiding (enclosed, macro, nested)
